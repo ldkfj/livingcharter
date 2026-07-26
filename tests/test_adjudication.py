@@ -498,3 +498,23 @@ def test_fractional_gen_amount_prompt_formatting(treasury):
     prompt = gl.nondet._prompt_history[0]
     assert "1.500000 GEN" in prompt
     assert f"Requested Amount: {amount_wei} wei (1.500000 GEN)" in prompt
+
+
+def test_evidence_fetch_uses_text_mode(treasury):
+    """Regression for hotfix a471c5e: every evidence render must use mode='text'.
+
+    With mode='html' the 6000-char evidence window carries only head-HTML, so
+    listed prices never reach the model (observed live on Treasury v1)."""
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "Ticket price: $469"
+    gl.nondet.web.render_calls.clear()
+    rid = treasury.submit_request(1000, "Conference ticket reimbursement claim", EVIDENCE_URL_1)
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "ok per article 1"},
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "ok per article 1"},
+    ]
+    treasury.adjudicate_request(rid)
+    assert len(gl.nondet.web.render_calls) > 0, "expected recorded evidence render calls"
+    assert all(mode == "text" for _url, mode in gl.nondet.web.render_calls), (
+        f"non-text render modes recorded: {gl.nondet.web.render_calls}"
+    )

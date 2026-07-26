@@ -163,12 +163,14 @@ class WebResponse:
 
 
 class WebNamespace:
-    """Stub for gl.nondet.web."""
+    """Stub for gl.nondet.web. Records every render call (url, mode) for regression assertions."""
 
     def __init__(self):
         self._registry: dict[str, Any] = {}
+        self.render_calls: list[tuple[str, str]] = []
 
     def render(self, url: str, mode: str = "html") -> str:
+        self.render_calls.append((url, mode))
         if url in self._registry:
             val = self._registry[url]
             if isinstance(val, Exception):
