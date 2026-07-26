@@ -6,6 +6,7 @@ from genlayer import gl, Address
 from conftest import set_sender, FOUNDING_ARTICLES
 from charter import (
     Charter,
+    MemberRec,
     ARTICLE_ACTIVE,
     ARTICLE_SUPERSEDED,
     ARTICLE_REPEALED,
@@ -398,7 +399,7 @@ def test_all_error_codes_asserted(charter):
     # Total members = 4. member_count // 2 = 2. Strict majority requires yes > 2 (i.e. 3 or 4 votes).
     set_sender(DEPLOYER)
     aid3 = charter.propose_amendment(KIND_ADD_ARTICLE, 0, "Third valid new article text...", "", "Amd 3")
-    charter.vote(aid3, True)  # 1 vote, state VOTING
+    charter.vote(aid3, True)
     with pytest.raises(Exception, match="E_CANNOT_FINALIZE"):
         charter.finalize_amendment(aid3)
 
@@ -431,3 +432,105 @@ def test_views_and_get_member(charter):
 
     with pytest.raises(Exception, match="E_INVALID_ARTICLE_TARGET"):
         charter.get_article(99)
+
+
+def test_invalidation_duplicate_remove_member(charter):
+    set_sender(DEPLOYER)
+    aid_m2 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_2, "Add M2")
+    charter.vote(aid_m2, True)
+    charter.finalize_amendment(aid_m2)
+
+    aid_m3 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_3, "Add M3")
+    charter.vote(aid_m3, True)
+    set_sender(MEMBER_2)
+    charter.vote(aid_m3, True)
+    charter.finalize_amendment(aid_m3)
+    assert charter.member_count == 3
+
+    set_sender(DEPLOYER)
+    aid_rem1 = charter.propose_amendment(KIND_REMOVE_MEMBER, 0, "", MEMBER_3, "Remove M3 first")
+    aid_rem2 = charter.propose_amendment(KIND_REMOVE_MEMBER, 0, "", MEMBER_3, "Remove M3 second")
+
+    for aid in (aid_rem1, aid_rem2):
+        set_sender(DEPLOYER)
+        charter.vote(aid, True)
+        set_sender(MEMBER_2)
+        charter.vote(aid, True)
+
+    charter.finalize_amendment(aid_rem1)
+    assert json.loads(charter.get_amendment(aid_rem1))["state_name"] == "RATIFIED"
+    assert charter.member_count == 2
+    assert json.loads(charter.get_member(MEMBER_3))["active"] is False
+
+    charter.finalize_amendment(aid_rem2)
+    assert json.loads(charter.get_amendment(aid_rem2))["state_name"] == "REJECTED"
+    assert charter.member_count == 2
+
+
+def test_invalidation_add_already_active_member(charter):
+    set_sender(DEPLOYER)
+    aid_m2 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_2, "Add M2")
+    charter.vote(aid_m2, True)
+    charter.finalize_amendment(aid_m2)
+
+    aid_m3 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_3, "Add M3 proposal")
+    charter.vote(aid_m3, True)
+    set_sender(MEMBER_2)
+    charter.vote(aid_m3, True)
+
+    charter.members[Address(MEMBER_3)] = MemberRec(active=True, joined_at=1000)
+    charter.member_count = 3
+
+    set_sender(DEPLOYER)
+    charter.finalize_amendment(aid_m3)
+    assert json.loads(charter.get_amendment(aid_m3))["state_name"] == "REJECTED"
+    assert charter.member_count == 3
+
+
+def test_invalidation_replace_since_repealed_article(charter):
+    set_sender(DEPLOYER)
+    aid_replace = charter.propose_amendment(
+        KIND_REPLACE_ARTICLE, 1, "New text replacing article 1 meeting twenty chars requirement.", "", "Replace art 1"
+    )
+    charter.vote(aid_replace, True)
+
+    aid_repeal = charter.propose_amendment(KIND_REPEAL_ARTICLE, 1, "", "", "Repeal art 1 first")
+    charter.vote(aid_repeal, True)
+    charter.finalize_amendment(aid_repeal)
+
+    assert json.loads(charter.get_article(1))["status"] == ARTICLE_REPEALED
+
+    charter.finalize_amendment(aid_replace)
+    assert json.loads(charter.get_amendment(aid_replace))["state_name"] == "REJECTED"
+    assert json.loads(charter.get_article(1))["status"] == ARTICLE_REPEALED
+
+
+def test_early_finalization_strict_majority_3_members_2_yes(charter):
+    set_sender(DEPLOYER)
+    aid_m2 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_2, "Add M2")
+    charter.vote(aid_m2, True)
+    charter.finalize_amendment(aid_m2)
+
+    aid_m3 = charter.propose_amendment(KIND_ADD_MEMBER, 0, "", MEMBER_3, "Add M3")
+    charter.vote(aid_m3, True)
+    set_sender(MEMBER_2)
+    charter.vote(aid_m3, True)
+    charter.finalize_amendment(aid_m3)
+
+    assert charter.member_count == 3
+
+    set_sender(DEPLOYER)
+    aid = charter.propose_amendment(
+        KIND_ADD_ARTICLE, 0, "New Article 5: Test early finalization strict majority with 3 members.", "", "Add art 5"
+    )
+
+    charter.vote(aid, True)
+    with pytest.raises(Exception, match="E_CANNOT_FINALIZE"):
+        charter.finalize_amendment(aid)
+
+    set_sender(MEMBER_2)
+    charter.vote(aid, True)
+
+    charter.finalize_amendment(aid)
+    assert json.loads(charter.get_amendment(aid))["state_name"] == "RATIFIED"
+    assert charter.article_count == 5

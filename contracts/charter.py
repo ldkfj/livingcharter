@@ -10,6 +10,11 @@ Storage Approach:
     Storage-compatible dataclasses (@allow_storage @dataclass) stored inside TreeMap collections.
     Flat voter tracking map (amendment_votes: TreeMap[str, bool]) keyed by f"{amendment_id}:{voter_hex}".
 
+Ratification-Time Invalidation:
+    If an amendment passed by vote but its preconditions are no longer satisfied at finalization time
+    (e.g. target member already removed, target member already active, target article repealed), the
+    amendment transitions to REJECTED without applying effects or incrementing charter_version.
+
 Constants:
     Article status:
         ARTICLE_ACTIVE = 0
@@ -325,8 +330,30 @@ class Charter(gl.Contract):
             return
 
         if amd.yes > amd.no:
-            amd.state = AMENDMENT_RATIFIED
             kind = amd.kind
+
+            # Re-validate preconditions against current state at ratification time
+            valid = True
+            if kind in (KIND_REPLACE_ARTICLE, KIND_REPEAL_ARTICLE):
+                if (
+                    amd.target_article_id not in self.articles
+                    or self.articles[amd.target_article_id].status != ARTICLE_ACTIVE
+                ):
+                    valid = False
+            elif kind == KIND_ADD_MEMBER:
+                t_addr = Address(amd.target_member)
+                if t_addr in self.members and self.members[t_addr].active:
+                    valid = False
+            elif kind == KIND_REMOVE_MEMBER:
+                t_addr = Address(amd.target_member)
+                if t_addr not in self.members or not self.members[t_addr].active or self.member_count <= 1:
+                    valid = False
+
+            if not valid:
+                amd.state = AMENDMENT_REJECTED
+                return
+
+            amd.state = AMENDMENT_RATIFIED
 
             if kind == KIND_ADD_ARTICLE:
                 self.article_count += 1
