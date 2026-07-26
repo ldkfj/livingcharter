@@ -32,12 +32,12 @@ class UserData:
 - **Payable value accessor:** `gl.message.value` | Signature: `gl.message.value -> u256` | Source URL: https://docs.genlayer.com/developers/intelligent-contracts/features/transaction-context
 - **Balances documentation page:** `https://docs.genlayer.com/developers/intelligent-contracts/features/balances` now exists and states that it moved to and links to `features/value-transfers`; native balances are documented under the value-transfers page.
 
-## Frontend toolchain (verified 2026-07-27)
+## Frontend toolchain (verified installed 2026-07-27 via npm ls)
 - **genlayer-js:** `v1.1.8`
-- **React:** `v19.0.0`
-- **React-DOM:** `v19.0.0`
-- **Vite:** `v6.1.0`
-- **TypeScript:** `v5.7.3`
+- **React:** `v19.2.8`
+- **React-DOM:** `v19.2.8`
+- **Vite:** `v6.4.3`
+- **TypeScript:** `v5.9.3`
 
 ## Verification Metadata
 - **Source URLs:**
