@@ -250,3 +250,257 @@ class Treasury(gl.Contract):
         self.open_request[caller] = rid
         self.last_request_at[caller] = now
         return rid
+
+    def _apply_ruling(
+        self,
+        request_id: int,
+        decision: int,
+        approved_amount_wei: int,
+        cited_article_ids_json: str,
+        charter_version: int,
+        reason: str,
+        is_appeal: bool,
+    ):
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+
+        if decision not in (DECISION_APPROVE, DECISION_PARTIAL, DECISION_DENY):
+            raise Exception("E_INVALID_RULING")
+
+        if decision == DECISION_APPROVE and approved_amount_wei != req.amount_wei:
+            raise Exception("E_INVALID_RULING")
+        if decision == DECISION_DENY and approved_amount_wei != 0:
+            raise Exception("E_INVALID_RULING")
+        if decision == DECISION_PARTIAL and not (0 < approved_amount_wei < req.amount_wei):
+            raise Exception("E_INVALID_RULING")
+
+        if not (1 <= len(reason) <= 500):
+            raise Exception("E_INVALID_RULING")
+
+        now = self._now()
+        self.precedent_count += 1
+        seq = self.precedent_count
+        summary = f"{DECISION_NAMES[decision]}: {reason}"[:400]
+
+        ruling = RulingRec(
+            decision=decision,
+            approved_amount_wei=approved_amount_wei,
+            cited_article_ids_json=cited_article_ids_json,
+            charter_version=charter_version,
+            reason=reason,
+            precedent_seq=seq,
+        )
+
+        if is_appeal:
+            self.appeal_rulings[request_id] = ruling
+            req.state = REQ_FINAL_RULED
+        else:
+            self.rulings[request_id] = ruling
+            req.state = REQ_RULED
+            req.ruled_at = now
+            req.appeal_deadline = now + self.appeal_window_seconds
+
+        precedent = PrecedentRec(
+            seq=seq,
+            request_id=request_id,
+            decision=decision,
+            requested_wei=req.amount_wei,
+            approved_wei=approved_amount_wei,
+            cited_article_ids_json=cited_article_ids_json,
+            charter_version=charter_version,
+            summary=summary,
+            created_at=now,
+            is_appeal=is_appeal,
+        )
+        self.precedents.append(precedent)
+
+    @gl.public.write
+    def adjudicate_request(self, request_id: int):
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+        if req.state not in (REQ_SUBMITTED, REQ_APPEALED, REQ_UNDETERMINED):
+            raise Exception("E_BAD_STATE")
+
+        raise Exception("E_ADJUDICATION_NOT_WIRED")
+
+    def _mark_undetermined(self, request_id: int):
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+        req.retries += 1
+        if req.retries <= 1:
+            req.state = REQ_UNDETERMINED
+        else:
+            req.state = REQ_FAILED
+            self.open_request[req.requester] = 0
+
+    @gl.public.write
+    def appeal_ruling(self, request_id: int, argument: str):
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+        if req.state != REQ_RULED:
+            raise Exception("E_BAD_STATE")
+
+        now = self._now()
+        if now >= req.appeal_deadline:
+            raise Exception("E_APPEAL_WINDOW_CLOSED")
+
+        if req.appealed:
+            raise Exception("E_ALREADY_APPEALED")
+
+        caller = gl.message.sender_address
+        if not (caller == req.requester or self._is_active_member(caller)):
+            raise Exception("E_NOT_ALLOWED")
+
+        if not (20 <= len(argument) <= 1000):
+            raise Exception("E_INVALID_ARGUMENT")
+
+        req.appealed = True
+        req.appellant = caller
+        req.appeal_argument = argument
+        req.state = REQ_APPEALED
+
+    @gl.public.write
+    def execute_payout(self, request_id: int):
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+        if req.paid:
+            raise Exception("E_ALREADY_PAID")
+
+        now = self._now()
+        eligible = (req.state == REQ_FINAL_RULED) or (
+            req.state == REQ_RULED and now >= req.appeal_deadline
+        )
+
+        if not eligible:
+            raise Exception("E_NOT_PAYABLE")
+
+        ruling = (
+            self.appeal_rulings[request_id]
+            if request_id in self.appeal_rulings
+            else self.rulings[request_id]
+        )
+
+        if ruling.approved_amount_wei > 0:
+            if ruling.approved_amount_wei > self._balance():
+                raise Exception("E_INSUFFICIENT_BALANCE")
+            self._transfer(req.requester, ruling.approved_amount_wei)
+            req.paid = True
+            req.state = REQ_PAID
+        else:
+            req.state = REQ_CLOSED
+
+        self.open_request[req.requester] = 0
+
+    @gl.public.view
+    def get_request(self, request_id: int) -> str:
+        if request_id not in self.requests:
+            raise Exception("E_REQUEST_NOT_FOUND")
+
+        req = self.requests[request_id]
+
+        init_r = None
+        if request_id in self.rulings:
+            r = self.rulings[request_id]
+            init_r = {
+                "decision": r.decision,
+                "decision_name": DECISION_NAMES[r.decision],
+                "approved_amount_wei": r.approved_amount_wei,
+                "cited_article_ids": json.loads(r.cited_article_ids_json),
+                "charter_version": r.charter_version,
+                "reason": r.reason,
+                "precedent_seq": r.precedent_seq,
+            }
+
+        app_r = None
+        if request_id in self.appeal_rulings:
+            r = self.appeal_rulings[request_id]
+            app_r = {
+                "decision": r.decision,
+                "decision_name": DECISION_NAMES[r.decision],
+                "approved_amount_wei": r.approved_amount_wei,
+                "cited_article_ids": json.loads(r.cited_article_ids_json),
+                "charter_version": r.charter_version,
+                "reason": r.reason,
+                "precedent_seq": r.precedent_seq,
+            }
+
+        req_hex = req.requester.as_hex if hasattr(req.requester, "as_hex") else str(req.requester)
+        app_hex = req.appellant.as_hex if hasattr(req.appellant, "as_hex") else str(req.appellant)
+
+        res = {
+            "id": req.id,
+            "requester": req_hex,
+            "amount_wei": req.amount_wei,
+            "purpose": req.purpose,
+            "evidence_urls": json.loads(req.evidence_urls_json),
+            "state": req.state,
+            "state_name": STATE_NAMES[req.state],
+            "created_at": req.created_at,
+            "ruled_at": req.ruled_at,
+            "appeal_deadline": req.appeal_deadline,
+            "retries": req.retries,
+            "appealed": req.appealed,
+            "appellant": app_hex,
+            "appeal_argument": req.appeal_argument,
+            "paid": req.paid,
+            "initial_ruling": init_r,
+            "appeal_ruling": app_r,
+        }
+        return json.dumps(res)
+
+    @gl.public.view
+    def get_request_count(self) -> str:
+        return json.dumps(self.request_count)
+
+    @gl.public.view
+    def get_precedents(self, offset: int, limit: int) -> str:
+        limit = min(limit, 20)
+        total = len(self.precedents)
+        if offset >= total:
+            return json.dumps([])
+
+        newest = list(reversed(list(self.precedents)))
+        page = newest[offset : offset + limit]
+
+        res = []
+        for p in page:
+            res.append({
+                "seq": p.seq,
+                "request_id": p.request_id,
+                "decision": p.decision,
+                "decision_name": DECISION_NAMES[p.decision],
+                "requested_wei": p.requested_wei,
+                "approved_wei": p.approved_wei,
+                "cited_article_ids": json.loads(p.cited_article_ids_json),
+                "charter_version": p.charter_version,
+                "summary": p.summary,
+                "created_at": p.created_at,
+                "is_appeal": p.is_appeal,
+            })
+        return json.dumps(res)
+
+    @gl.public.view
+    def get_precedent_count(self) -> str:
+        return json.dumps(self.precedent_count)
+
+    @gl.public.view
+    def get_treasury_state(self) -> str:
+        charter_hex = self.charter_address.as_hex if hasattr(self.charter_address, "as_hex") else str(self.charter_address)
+        res = {
+            "charter_address": charter_hex,
+            "appeal_window_seconds": self.appeal_window_seconds,
+            "member_cooldown_seconds": self.member_cooldown_seconds,
+            "request_count": self.request_count,
+            "precedent_count": self.precedent_count,
+        }
+        return json.dumps(res)
