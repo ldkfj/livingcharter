@@ -18,6 +18,7 @@ import {
 } from "./hooks/useContractData";
 import { connectEip1193Wallet, subscribeWalletEvents, unsubscribeWalletEvents } from "./lib/wallet";
 import { createWriteClient } from "./lib/genlayerClient";
+import { FRONTEND_CONTRACT_CALLS } from "./lib/contractMethods";
 import {
   executeWriteTransaction,
   TxStatusState,
@@ -25,6 +26,7 @@ import {
 } from "./lib/txEngine";
 
 export const App: React.FC = () => {
+  const calls = FRONTEND_CONTRACT_CALLS;
   const { config, errors } = getEnvConfig();
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
   const [connectedAccount, setConnectedAccount] = useState<string | null>(null);
@@ -132,11 +134,11 @@ export const App: React.FC = () => {
 
   // Treasury Actions
   const handleFundSubmit = async (valueWei: bigint) => {
-    return runWrite(config.treasuryAddress, "fund", [], valueWei);
+    return runWrite(config.treasuryAddress, calls.treasury.fund.methodName, [], valueWei);
   };
 
   const handleSubmitRequest = async (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => {
-    const result = await runWrite(config.treasuryAddress, "submit_request", [amountWei, purpose, url1, url2, url3]);
+    const result = await runWrite(config.treasuryAddress, calls.treasury.submitRequest.methodName, [amountWei, purpose, url1, url2, url3]);
     if (result.kind === "success") {
       setIsNewReqModalOpen(false);
     }
@@ -144,15 +146,15 @@ export const App: React.FC = () => {
   };
 
   const handleAdjudicateRequest = async (requestId: number) => {
-    return runWrite(config.treasuryAddress, "adjudicate_request", [requestId]);
+    return runWrite(config.treasuryAddress, calls.treasury.adjudicateRequest.methodName, [requestId]);
   };
 
   const handleAppealRuling = async (requestId: number, appealArg: string) => {
-    return runWrite(config.treasuryAddress, "appeal_ruling", [requestId, appealArg]);
+    return runWrite(config.treasuryAddress, calls.treasury.appealRuling.methodName, [requestId, appealArg]);
   };
 
   const handleExecutePayout = async (requestId: number) => {
-    return runWrite(config.treasuryAddress, "execute_payout", [requestId]);
+    return runWrite(config.treasuryAddress, calls.treasury.executePayout.methodName, [requestId]);
   };
 
   // Charter Amendment Actions
@@ -163,7 +165,7 @@ export const App: React.FC = () => {
     targetMember: string,
     rationale: string
   ) => {
-    const result = await runWrite(config.charterAddress, "propose_amendment", [
+    const result = await runWrite(config.charterAddress, calls.charter.proposeAmendment.methodName, [
       kind,
       targetArticleId,
       newText,
@@ -177,15 +179,15 @@ export const App: React.FC = () => {
   };
 
   const handleVoteAmendment = async (amendmentId: number, voteYes: boolean) => {
-    return runWrite(config.charterAddress, "vote_amendment", [amendmentId, voteYes]);
+    return runWrite(config.charterAddress, calls.charter.vote.methodName, [amendmentId, voteYes]);
   };
 
   const handleFinalizeAmendment = async (amendmentId: number) => {
-    return runWrite(config.charterAddress, "finalize_amendment", [amendmentId]);
+    return runWrite(config.charterAddress, calls.charter.finalizeAmendment.methodName, [amendmentId]);
   };
 
   const handleCancelAmendment = async (amendmentId: number) => {
-    return runWrite(config.charterAddress, "cancel_amendment", [amendmentId]);
+    return runWrite(config.charterAddress, calls.charter.cancelAmendment.methodName, [amendmentId]);
   };
 
   const handleSelectArticleAnchor = (articleId: number) => {
