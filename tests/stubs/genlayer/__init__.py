@@ -141,6 +141,16 @@ class PublicNamespace:
         self.write = WriteDecorator()
 
 
+class EVMSubNamespace:
+    """Stub for gl.evm."""
+
+    def contract_interface(self, cls):
+        def wrapper(addr):
+            return ContractRef(Address(addr.as_hex if hasattr(addr, "as_hex") else str(addr)))
+
+        return wrapper
+
+
 class WebResponse:
     """Stub HTTP response object."""
 
@@ -198,6 +208,7 @@ class NondetNamespace:
 
 class ConsensusFailure(Exception):
     """Raised when VM nondet consensus is rejected by validator."""
+
     pass
 
 
@@ -231,7 +242,7 @@ class VMNamespace:
 
 
 class ContractRef:
-    """Stub reference for cross-contract calls."""
+    """Stub reference for cross-contract calls and EOA transfers."""
 
     def __init__(self, addr: Address, instance: Any = None):
         self.address = addr
@@ -250,6 +261,7 @@ class ContractRef:
         class Emitter:
             def __getattr__(self, name):
                 return lambda *args, **kwargs: None
+
         return Emitter()
 
 
@@ -291,6 +303,7 @@ class GenLayerNamespace:
     def __init__(self):
         self.Contract = Contract
         self.public = PublicNamespace()
+        self.evm = EVMSubNamespace()
         self.message = MessageContext()
         self.nondet = NondetNamespace()
         self.vm = VMNamespace()

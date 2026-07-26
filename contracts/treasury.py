@@ -81,6 +81,15 @@ STATE_NAMES = [
 ]
 
 
+@gl.evm.contract_interface
+class _EOARecipient:
+    class View:
+        pass
+
+    class Write:
+        pass
+
+
 @allow_storage
 @dataclass
 class RulingRec:
@@ -165,7 +174,9 @@ def _evaluate_request(
     else:
         precedents_text = "None recorded yet."
 
-    gen_amount_str = f"{requested_wei / 10**18:.6f} GEN"
+    whole_gen = requested_wei // 10**18
+    frac_gen = (requested_wei % 10**18) // 10**12
+    gen_amount_str = f"{whole_gen}.{frac_gen:06d} GEN"
 
     appeal_section = ""
     if is_appeal:
@@ -317,8 +328,9 @@ class Treasury(gl.Contract):
         return int(self.balance)
 
     def _transfer(self, to: Address, amount_wei: int) -> None:
-        """Internal native GEN transfer helper."""
-        gl.get_contract_at(to).emit_transfer(value=u256(amount_wei), on="finalized")
+        """Internal native GEN transfer helper to EOA/wallet recipient."""
+        target = to if isinstance(to, Address) else Address(str(to))
+        _EOARecipient(target).emit_transfer(value=u256(amount_wei))
 
     @gl.public.write.payable
     def fund(self):
@@ -490,7 +502,6 @@ class Treasury(gl.Contract):
         else:
             raise Exception("E_BAD_STATE")
 
-        # Extract PRIMITIVES to avoid closure over self
         requested_wei = req.amount_wei
         requester_hex = req.requester.as_hex if hasattr(req.requester, "as_hex") else str(req.requester)
         purpose = req.purpose
