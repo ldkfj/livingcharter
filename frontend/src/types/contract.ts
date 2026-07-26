@@ -25,7 +25,7 @@ export interface CharterCounts {
 export interface RulingInfo {
   decision: number;
   decision_name: string;
-  approved_amount_wei: string | number;
+  approved_amount_wei: bigint;
   cited_article_ids: number[];
   charter_version: number;
   reason: string;
@@ -35,7 +35,7 @@ export interface RulingInfo {
 export interface RequestInfo {
   id: number;
   requester: string;
-  amount_wei: string | number;
+  amount_wei: bigint;
   purpose: string;
   evidence_urls: string[];
   state: number;
@@ -57,8 +57,8 @@ export interface PrecedentInfo {
   request_id: number;
   decision: number;
   decision_name: string;
-  requested_wei: string | number;
-  approved_wei: string | number;
+  requested_wei: bigint;
+  approved_wei: bigint;
   cited_article_ids: number[];
   charter_version: number;
   summary: string;
@@ -72,7 +72,7 @@ export interface TreasuryState {
   member_cooldown_seconds: number;
   request_count: number;
   precedent_count: number;
-  balance_wei?: string;
+  balance_wei: bigint;
 }
 
 export interface AmendmentInfo {

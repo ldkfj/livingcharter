@@ -52,14 +52,10 @@ export const contractService = {
   // Treasury View Calls
   async getTreasuryState(treasuryAddress: string): Promise<TreasuryState> {
     const state = await readContractJson<TreasuryState>(treasuryAddress, "get_treasury_state");
-    try {
-      const balance = await genlayerClient.getBalance({
-        address: treasuryAddress as `0x${string}`,
-      });
-      state.balance_wei = balance.toString();
-    } catch {
-      state.balance_wei = state.balance_wei || "0";
-    }
+    const balance = await genlayerClient.getBalance({
+      address: treasuryAddress as `0x${string}`,
+    });
+    state.balance_wei = balance;
     return state;
   },
 

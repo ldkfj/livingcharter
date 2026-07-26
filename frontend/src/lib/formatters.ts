@@ -1,28 +1,10 @@
 /**
- * Formats a 10^18 scaled wei integer string, number, or bigint to a GEN decimal string
- * using pure BigInt arithmetic (NO FLOAT ARITHMETIC).
+ * Formats a 10^18 scaled wei bigint to a GEN decimal string using only bigint arithmetic.
  */
-export function formatWeiToGen(weiVal: string | number | bigint | undefined | null): string {
-  if (weiVal === undefined || weiVal === null) return "0.000000";
-
-  let valBig: bigint;
-  try {
-    if (typeof weiVal === "bigint") {
-      valBig = weiVal;
-    } else if (typeof weiVal === "number") {
-      valBig = BigInt(Math.floor(weiVal));
-    } else {
-      const cleanStr = String(weiVal).trim();
-      if (!cleanStr || cleanStr === "0") return "0.000000";
-      valBig = BigInt(cleanStr);
-    }
-  } catch {
-    return "0.000000";
-  }
-
+export function formatWeiToGen(weiVal: bigint): string {
   const weiInGen = 10n ** 18n;
-  const whole = valBig / weiInGen;
-  const remainder = valBig % weiInGen;
+  const whole = weiVal / weiInGen;
+  const remainder = weiVal % weiInGen;
 
   // Scale remainder (18 digits) down to 6 decimal digits
   const fracDigits = remainder / 10n ** 12n;

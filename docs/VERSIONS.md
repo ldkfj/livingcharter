@@ -38,6 +38,7 @@ class UserData:
 - **React-DOM:** `v19.2.8`
 - **Vite:** `v6.4.3`
 - **TypeScript:** `v5.9.3`
+- **lossless-json:** `v4.3.0`
 
 ## Verification Metadata
 - **Source URLs:**
