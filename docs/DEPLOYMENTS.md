@@ -73,6 +73,11 @@ Spend requests (Treasury v2):
 | submit_request #4 — team dinner 0.05 GEN (post-amendment) | C | SUBMITTED | `0xda7c98f02bcdbde4f5ab2f6506bd4257627c7fb3d9c14f21654b8be93e0e4124` |
 | adjudicate #4 | B | **PARTIAL 0.03 GEN** — cites art. 4 **v2**, cap applied | `0xd7afa8d03a5834470e953c99ee012bdf09d585bfcb11fda7e5da36311c907175` |
 | execute_payout #4 → PAID 0.03 GEN to C | C | PAID | `0xf8fd83ebe157d23a8b7db6bc1e3892dd0f6ad7681a9cd3dc456d3fa71be06120` |
+| submit_request #5 — PyCon Student ticket 0.01 GEN (pre-submission journey) | B | SUBMITTED | `0xec570311699f2282db746522625288acc246ac7f6685b8d47f45f1a95ac60b6d` |
+| adjudicate #5 | C | **APPROVE** — ruling quotes "$139 USD" Student price, cites art. 1 and precedent seq=1 | `0xcf3014bc6dec86b03aee722a55a58888de9e08451e0a4ffedd244e9de16dfd42` |
+| execute_payout #5 → PAID 0.01 GEN to B | C | PAID | `0x7bed2fbc8ce0b53a892bed93832f6c3d60afd3669e0dc5b5e00f25090fca38eb` |
+
+Final on-chain state at submission: balance 0.94 GEN; 5 requests all terminal; 6 precedents; charter v4; 3 members.
 
 Final state: balance 0.95 GEN; 4 requests all terminal (PAID/CLOSED/CLOSED/PAID); 5 precedents; the same request type denied under charter v3 (precedent #4) is partially approved under v4 (precedent #5) — the living-charter loop demonstrated on-chain.
 
