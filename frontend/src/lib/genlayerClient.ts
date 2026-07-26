@@ -7,6 +7,10 @@ export const genlayerClient = createClient({
   endpoint: "https://studio.genlayer.com/api",
 });
 
+type ContractReadArgs = NonNullable<
+  Parameters<typeof genlayerClient.readContract>[0]["args"]
+>;
+
 export function createWriteClient(accountAddress: string) {
   return createClient({
     chain: studionet,
@@ -49,11 +53,11 @@ export function parseContractJson(rawResult: string): unknown {
   });
 }
 
-export async function readContractJson<T>(
+export async function readContractJson(
   address: string,
   functionName: string,
-  args: any[] = []
-): Promise<T> {
+  args: ContractReadArgs = [],
+): Promise<unknown> {
   const rawResult = await genlayerClient.readContract({
     address: address as `0x${string}`,
     functionName,
@@ -61,8 +65,8 @@ export async function readContractJson<T>(
   });
 
   if (typeof rawResult === "string") {
-    return parseContractJson(rawResult) as T;
+    return parseContractJson(rawResult);
   }
 
-  return rawResult as T;
+  return rawResult;
 }
