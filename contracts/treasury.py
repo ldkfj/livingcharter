@@ -195,7 +195,7 @@ def _evaluate_request(
     available_evidence_count = 0
     for i, u in enumerate(urls, 1):
         try:
-            body = gl.nondet.web.render(u, mode="html")
+            body = gl.nondet.web.render(u, mode="text")
             if not body or not body.strip():
                 body = "EVIDENCE UNAVAILABLE"
             else:
