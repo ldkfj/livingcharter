@@ -15,7 +15,11 @@ Development/integration instance for frontend Phase 4–5. Not the final submiss
 | Bootstrap | 4 founding articles ratified; `get_charter_bundle` verified `charter_version: 1` |
 | Treasury verify | `get_treasury_state` verified: matching charter address, `balance_wei: 0`, window 300s, cooldown 60s |
 
+| Fund smoke test | `fund` with Studio Value field `1` → `balance_wei: 1000000000000000000` (1 GEN) verified via `get_treasury_state` |
+
 Verification rule: every transaction must show Status `FINALIZED` **and** Result `SUCCESS` before the step counts.
+
+Gotcha (Studio UI): the write-method **Value** field accepts integers only and denominates in whole GEN (`1` → 10^18 wei). Decimals like `0.1` throw "cannot be converted to a BigInt". Stale contract entries from other sessions produce harmless `gen_getContractSchema ... not found` log errors — ignore any error naming an address that is not one of ours.
 
 ## Final submission instance
 
