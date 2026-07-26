@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { DashboardData } from "../hooks/useContractData";
 import { formatWeiToGen, truncateAddress } from "../lib/formatters";
 import { CharterPanel } from "./CharterPanel";
+import { FundForm } from "./FundForm";
 import {
   Coins,
   ShieldCheck,
@@ -23,6 +24,9 @@ interface DashboardViewProps {
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  connectedAccount?: string | null;
+  onFundSubmit?: (valueWei: bigint) => Promise<void>;
+  isExecuting?: boolean;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -32,6 +36,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   loading,
   error,
   onRetry,
+  connectedAccount = null,
+  onFundSubmit,
+  isExecuting = false,
 }) => {
   const [copiedCharter, setCopiedCharter] = useState(false);
   const [copiedTreasury, setCopiedTreasury] = useState(false);
@@ -137,6 +144,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Fund Deposit Form */}
+      {onFundSubmit && (
+        <FundForm
+          connectedAccount={connectedAccount}
+          onFundSubmit={onFundSubmit}
+          isExecuting={isExecuting}
+        />
+      )}
 
       {/* Stat Grid */}
       <div className="stat-grid">

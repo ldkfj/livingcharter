@@ -7,6 +7,8 @@ import { DashboardView } from "./components/DashboardView";
 import { RequestsView } from "./components/RequestsView";
 import { AmendmentsView } from "./components/AmendmentsView";
 import { PrecedentsView } from "./components/PrecedentsView";
+import { NewRequestModal } from "./components/NewRequestModal";
+import { TransactionStatusModal } from "./components/TransactionStatusModal";
 import {
   useDashboardData,
   useRequests,
@@ -14,6 +16,7 @@ import {
   usePrecedents,
 } from "./hooks/useContractData";
 import { connectEip1193Wallet, subscribeWalletEvents, unsubscribeWalletEvents } from "./lib/wallet";
+import { executeWriteTransaction, TxStatusState } from "./lib/txEngine";
 
 export const App: React.FC = () => {
   const { config, errors } = getEnvConfig();
@@ -21,8 +24,12 @@ export const App: React.FC = () => {
   const [connectedAccount, setConnectedAccount] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  // Modals & Tx State
+  const [isNewReqModalOpen, setIsNewReqModalOpen] = useState(false);
+  const [txStatus, setTxStatus] = useState<TxStatusState | null>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+
   useEffect(() => {
-    // Check if wallet accounts exist already
     if (typeof window !== "undefined" && (window as any).ethereum) {
       const ethereum = (window as any).ethereum;
       ethereum.request({ method: "eth_accounts" }).then((accounts: string[]) => {
@@ -75,6 +82,61 @@ export const App: React.FC = () => {
   const amendmentsState = useAmendments(config.charterAddress);
   const precedentsState = usePrecedents(config.treasuryAddress);
 
+  const refetchAll = () => {
+    dashboardState.refetch();
+    requestsState.refetch();
+    amendmentsState.refetch();
+    precedentsState.refetch();
+  };
+
+  // Write Action Executors
+  const runWrite = async (
+    targetAddr: string,
+    method: string,
+    args: any[] = [],
+    valueWei: bigint = 0n
+  ) => {
+    if (!connectedAccount) return;
+    setIsExecuting(true);
+    try {
+      await executeWriteTransaction(
+        connectedAccount,
+        targetAddr,
+        method,
+        args,
+        valueWei,
+        (st) => setTxStatus(st)
+      );
+      refetchAll();
+    } catch (err: any) {
+      // Handled in txEngine status stream
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Treasury Actions
+  const handleFundSubmit = async (valueWei: bigint) => {
+    await runWrite(config.treasuryAddress, "fund", [], valueWei);
+  };
+
+  const handleSubmitRequest = async (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => {
+    await runWrite(config.treasuryAddress, "submit_request", [amountWei, purpose, url1, url2, url3]);
+    setIsNewReqModalOpen(false);
+  };
+
+  const handleAdjudicateRequest = async (requestId: number) => {
+    await runWrite(config.treasuryAddress, "adjudicate_request", [requestId]);
+  };
+
+  const handleAppealRuling = async (requestId: number, appealArg: string) => {
+    await runWrite(config.treasuryAddress, "appeal_ruling", [requestId, appealArg]);
+  };
+
+  const handleExecutePayout = async (requestId: number) => {
+    await runWrite(config.treasuryAddress, "execute_payout", [requestId]);
+  };
+
   const handleSelectArticleAnchor = (articleId: number) => {
     setActiveTab("dashboard");
     setTimeout(() => {
@@ -105,6 +167,9 @@ export const App: React.FC = () => {
             loading={dashboardState.loading}
             error={dashboardState.error}
             onRetry={dashboardState.refetch}
+            connectedAccount={connectedAccount}
+            onFundSubmit={handleFundSubmit}
+            isExecuting={isExecuting}
           />
         )}
 
@@ -115,6 +180,12 @@ export const App: React.FC = () => {
             error={requestsState.error}
             onRetry={requestsState.refetch}
             onSelectArticleAnchor={handleSelectArticleAnchor}
+            connectedAccount={connectedAccount}
+            onOpenNewRequestModal={() => setIsNewReqModalOpen(true)}
+            onAdjudicateRequest={handleAdjudicateRequest}
+            onAppealRuling={handleAppealRuling}
+            onExecutePayout={handleExecutePayout}
+            isExecuting={isExecuting}
           />
         )}
 
@@ -140,6 +211,19 @@ export const App: React.FC = () => {
           />
         )}
       </main>
+
+      <NewRequestModal
+        isOpen={isNewReqModalOpen}
+        onClose={() => setIsNewReqModalOpen(false)}
+        onSubmitRequest={handleSubmitRequest}
+        isExecuting={isExecuting}
+        connectedAccount={connectedAccount}
+      />
+
+      <TransactionStatusModal
+        status={txStatus}
+        onClose={() => setTxStatus(null)}
+      />
 
       <Footer />
     </div>
