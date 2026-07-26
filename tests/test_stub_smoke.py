@@ -1,7 +1,7 @@
 """Smoke tests for the pure-Python GenLayer stub."""
 
 import pytest
-from genlayer import gl, Address, TreeMap, DynArray, u8, u32, u64, u256
+from genlayer import gl, Address, TreeMap, DynArray, allow_storage, u8, u32, u64, u256
 
 
 def test_address_validation():
@@ -14,10 +14,10 @@ def test_address_validation():
         Address("0xinvalid")
 
     with pytest.raises(ValueError):
-        Address("0x123")  # too short
+        Address("0x123")
 
     with pytest.raises(ValueError):
-        Address("1111111111111111111111111111111111111111")  # missing 0x
+        Address("1111111111111111111111111111111111111111")
 
 
 def test_treemap_behavior():
@@ -63,3 +63,28 @@ def test_gl_namespace_and_types():
     assert u32 is int
     assert u64 is int
     assert u256 is int
+
+
+def test_contract_storage_auto_initialization():
+    class DummyContract(gl.Contract):
+        map_field: TreeMap[str, int]
+        arr_field: DynArray[str]
+
+        def __init__(self):
+            pass
+
+    c1 = DummyContract()
+    c2 = DummyContract()
+
+    assert isinstance(c1.map_field, TreeMap)
+    assert isinstance(c1.arr_field, DynArray)
+    assert isinstance(c2.map_field, TreeMap)
+    assert isinstance(c2.arr_field, DynArray)
+
+    c1.map_field["a"] = 1
+    c1.arr_field.append("x")
+
+    assert "a" in c1.map_field
+    assert "a" not in c2.map_field
+    assert len(c1.arr_field) == 1
+    assert len(c2.arr_field) == 0

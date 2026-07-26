@@ -94,9 +94,6 @@ class Charter(gl.Contract):
         self.charter_version = 0
         self.amendment_count = 0
         self.voting_period_seconds = voting_period_seconds
-        self.members = TreeMap()
-        self.articles = TreeMap()
-        self.amendments = TreeMap()
 
     def _now(self) -> int:
         """Internal timestamp helper.

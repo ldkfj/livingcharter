@@ -3,6 +3,11 @@
 from typing import Any, Iterator
 
 
+def allow_storage(cls):
+    """Stub decorator for storage-compatible dataclasses."""
+    return cls
+
+
 class Address:
     """Represents an Ethereum/GenLayer address (0x-prefixed 40 hex chars)."""
 
@@ -129,10 +134,32 @@ class PublicNamespace:
         return func
 
 
-class Contract:
-    """Base class for gl.Contract."""
+def _is_storage_type(field_type: Any, target_cls: type, type_name: str) -> bool:
+    if field_type is target_cls or getattr(field_type, "__origin__", None) is target_cls:
+        return True
+    if isinstance(field_type, str):
+        clean = field_type.strip()
+        return clean == type_name or clean.startswith(type_name + "[")
+    return False
 
-    pass
+
+class Contract:
+    """Base class for gl.Contract with GenVM storage auto-initialization."""
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        orig_init = cls.__init__
+
+        def __init__(self, *args, **kw):
+            annotations = getattr(cls, "__annotations__", {})
+            for field_name, field_type in annotations.items():
+                if _is_storage_type(field_type, TreeMap, "TreeMap"):
+                    setattr(self, field_name, TreeMap())
+                elif _is_storage_type(field_type, DynArray, "DynArray"):
+                    setattr(self, field_name, DynArray())
+            orig_init(self, *args, **kw)
+
+        cls.__init__ = __init__
 
 
 class GenLayerNamespace:
