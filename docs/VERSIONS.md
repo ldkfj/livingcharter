@@ -38,8 +38,12 @@ class UserData:
 - **React-DOM:** `v19.2.8`
 - **Vite:** `v6.4.3`
 - **TypeScript:** `v5.9.3`
-- **lossless-json:** `v4.3.0`
-- **Vitest:** `v4.1.10`
+
+## Frontend write path (verified 2026-07-27)
+- **Write contract transaction:** `client.writeContract({ address, functionName, args, value })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Wait for transaction receipt:** `client.waitForTransactionReceipt({ hash, status, interval, retries })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Fetch transaction status:** `client.getTransaction({ hash })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/querying-a-transaction
+- **Connect wallet to Studionet network:** `client.connect("studionet")` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 
 ## Verification Metadata
 - **Source URLs:**
@@ -56,6 +60,8 @@ class UserData:
   - https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle
   - https://docs.genlayer.com/developers/decentralized-applications/genlayer-js
   - https://docs.genlayer.com/developers/decentralized-applications/reading-data
+  - https://docs.genlayer.com/developers/decentralized-applications/writing-data
+  - https://docs.genlayer.com/developers/decentralized-applications/querying-a-transaction
 - **Verification Date:** 2026-07-27
 
 ## Deployment Note
