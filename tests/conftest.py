@@ -55,3 +55,51 @@ def charter(charter_raw, default_deployer):
 
     charter_raw.bootstrap(json.dumps(FOUNDING_ARTICLES))
     return charter_raw
+
+
+@pytest.fixture
+def treasury_raw(default_deployer, monkeypatch):
+    from treasury import Treasury
+
+    charter_addr = "0x" + "a" * 40
+    t = Treasury(
+        charter_address=charter_addr,
+        appeal_window_seconds=600,
+        member_cooldown_seconds=300,
+    )
+
+    curr_time = [1000]
+    balance = [10**18]
+    transfers = []
+    active_members = {("0x" + "1" * 40).lower(), ("0x" + "2" * 40).lower()}
+
+    def mock_now():
+        return curr_time[0]
+
+    def mock_is_active_member(addr):
+        addr_hex = addr.as_hex if hasattr(addr, "as_hex") else str(addr)
+        return addr_hex.lower() in active_members
+
+    def mock_balance():
+        return balance[0]
+
+    def mock_transfer(to, amount):
+        transfers.append((to, amount))
+        balance[0] -= amount
+
+    monkeypatch.setattr(t, "_now", mock_now)
+    monkeypatch.setattr(t, "_is_active_member", mock_is_active_member)
+    monkeypatch.setattr(t, "_balance", mock_balance)
+    monkeypatch.setattr(t, "_transfer", mock_transfer)
+
+    t._mock_time = curr_time
+    t._mock_balance = balance
+    t._mock_transfers = transfers
+    t._mock_active_members = active_members
+
+    return t
+
+
+@pytest.fixture
+def treasury(treasury_raw):
+    return treasury_raw
