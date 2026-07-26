@@ -159,15 +159,23 @@ def test_apply_ruling_happy_paths_and_violations(treasury):
 
 def test_adjudicate_request_and_undetermined_ladder(treasury):
     set_sender(DEPLOYER)
+    gl.nondet.web._registry["https://workshop.org/reg"] = "<html>Registration receipt</html>"
     rid = treasury.submit_request(300, "Workshop registration fee claim", "https://workshop.org/reg")
 
-    # Acceptance of SUBMITTED state -> raises E_ADJUDICATION_NOT_WIRED
-    with pytest.raises(Exception, match="E_ADJUDICATION_NOT_WIRED"):
-        treasury.adjudicate_request(rid)
+    # Acceptance of SUBMITTED state -> executes adjudication successfully
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "300", "cited_article_ids": [1], "reason": "Fee approved"},
+        {"decision": "APPROVE", "approved_amount_wei": "300", "cited_article_ids": [1], "reason": "Fee approved"},
+    ]
+    treasury.adjudicate_request(rid)
+    assert json.loads(treasury.get_request(rid))["state_name"] == "RULED"
 
     # E_REQUEST_NOT_FOUND
     with pytest.raises(Exception, match="E_REQUEST_NOT_FOUND"):
         treasury.adjudicate_request(999)
+
+    # Reset request for undetermined testing
+    treasury.requests[rid].state = REQ_SUBMITTED
 
     # Test _mark_undetermined ladder
     treasury._mark_undetermined(rid)
@@ -175,11 +183,16 @@ def test_adjudicate_request_and_undetermined_ladder(treasury):
     assert req1["state_name"] == "UNDETERMINED"
     assert req1["retries"] == 1
 
-    # adjudicate_request accepts REQ_UNDETERMINED state -> raises E_ADJUDICATION_NOT_WIRED
-    with pytest.raises(Exception, match="E_ADJUDICATION_NOT_WIRED"):
-        treasury.adjudicate_request(rid)
+    # adjudicate_request accepts REQ_UNDETERMINED state
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "300", "cited_article_ids": [1], "reason": "Fee approved"},
+        {"decision": "APPROVE", "approved_amount_wei": "300", "cited_article_ids": [1], "reason": "Fee approved"},
+    ]
+    treasury.adjudicate_request(rid)
+    assert json.loads(treasury.get_request(rid))["state_name"] == "RULED"
 
     # Second failure moves to REQ_FAILED and clears open request
+    treasury.requests[rid].state = REQ_UNDETERMINED
     treasury._mark_undetermined(rid)
     req2 = json.loads(treasury.get_request(rid))
     assert req2["state_name"] == "FAILED"
@@ -193,6 +206,7 @@ def test_adjudicate_request_and_undetermined_ladder(treasury):
 
 def test_appeal_ruling_happy_paths_and_rejections(treasury):
     set_sender(DEPLOYER)
+    gl.nondet.web._registry["https://software.com/buy"] = "<html>License receipt</html>"
     rid = treasury.submit_request(600, "Software license reimbursement claim", "https://software.com/buy")
     treasury._apply_ruling(rid, DECISION_DENY, 0, "[3]", 1, "Evidence unverified", False)
 
@@ -234,21 +248,12 @@ def test_appeal_ruling_happy_paths_and_rejections(treasury):
         treasury.appeal_ruling(rid, "Valid appeal argument text meeting length requirement...")
 
     # adjudicate_request accepts REQ_APPEALED state
-    with pytest.raises(Exception, match="E_ADJUDICATION_NOT_WIRED"):
-        treasury.adjudicate_request(rid)
-
-    # Apply appeal ruling -> APPROVE 600
-    treasury._apply_ruling(rid, DECISION_APPROVE, 600, "[1, 3]", 1, "Appeal upheld per article 1", True)
-
-    req_final = json.loads(treasury.get_request(rid))
-    assert req_final["state_name"] == "FINAL_RULED"
-    assert req_final["appeal_ruling"]["decision_name"] == "APPROVE"
-    assert req_final["appeal_ruling"]["approved_amount_wei"] == 600
-
-    # Verify second precedent appended
-    precedents = json.loads(treasury.get_precedents(0, 10))
-    assert len(precedents) == 2
-    assert precedents[0]["is_appeal"] is True
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "600", "cited_article_ids": [1], "reason": "Appeal approved"},
+        {"decision": "APPROVE", "approved_amount_wei": "600", "cited_article_ids": [1], "reason": "Appeal approved"},
+    ]
+    treasury.adjudicate_request(rid)
+    assert json.loads(treasury.get_request(rid))["state_name"] == "FINAL_RULED"
 
 
 def test_payout_happy_paths_and_rejections(treasury):

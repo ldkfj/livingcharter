@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import pytest
 
 # Ensure stubs and contracts directories are on sys.path
@@ -51,8 +52,6 @@ def charter_raw(default_deployer, monkeypatch):
 
 @pytest.fixture
 def charter(charter_raw, default_deployer):
-    import json
-
     charter_raw.bootstrap(json.dumps(FOUNDING_ARTICLES))
     return charter_raw
 
@@ -72,6 +71,25 @@ def treasury_raw(default_deployer, monkeypatch):
     balance = [10**18]
     transfers = []
     active_members = {("0x" + "1" * 40).lower(), ("0x" + "2" * 40).lower()}
+
+    class MockCharter:
+        def get_charter_bundle(self):
+            return json.dumps({
+                "charter_version": 1,
+                "articles": [
+                    {"id": 1, "version": 1, "text": FOUNDING_ARTICLES[0]},
+                    {"id": 2, "version": 1, "text": FOUNDING_ARTICLES[1]},
+                    {"id": 3, "version": 1, "text": FOUNDING_ARTICLES[2]},
+                    {"id": 4, "version": 1, "text": FOUNDING_ARTICLES[3]},
+                ],
+            })
+
+        def get_member(self, addr):
+            addr_lower = addr.lower()
+            return json.dumps({"active": addr_lower in active_members})
+
+    mock_charter = MockCharter()
+    gl._contracts_registry[charter_addr.lower()] = mock_charter
 
     def mock_now():
         return curr_time[0]
@@ -96,6 +114,7 @@ def treasury_raw(default_deployer, monkeypatch):
     t._mock_balance = balance
     t._mock_transfers = transfers
     t._mock_active_members = active_members
+    t._mock_charter = mock_charter
 
     return t
 
