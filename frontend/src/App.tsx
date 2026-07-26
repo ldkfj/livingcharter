@@ -8,6 +8,7 @@ import { RequestsView } from "./components/RequestsView";
 import { AmendmentsView } from "./components/AmendmentsView";
 import { PrecedentsView } from "./components/PrecedentsView";
 import { NewRequestModal } from "./components/NewRequestModal";
+import { ProposeAmendmentModal } from "./components/ProposeAmendmentModal";
 import { TransactionStatusModal } from "./components/TransactionStatusModal";
 import {
   useDashboardData,
@@ -26,6 +27,7 @@ export const App: React.FC = () => {
 
   // Modals & Tx State
   const [isNewReqModalOpen, setIsNewReqModalOpen] = useState(false);
+  const [isProposeModalOpen, setIsProposeModalOpen] = useState(false);
   const [txStatus, setTxStatus] = useState<TxStatusState | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
 
@@ -89,7 +91,7 @@ export const App: React.FC = () => {
     precedentsState.refetch();
   };
 
-  // Write Action Executors
+  // Write Action Executor
   const runWrite = async (
     targetAddr: string,
     method: string,
@@ -109,7 +111,7 @@ export const App: React.FC = () => {
       );
       refetchAll();
     } catch (err: any) {
-      // Handled in txEngine status stream
+      // Status stream handles error display
     } finally {
       setIsExecuting(false);
     }
@@ -135,6 +137,36 @@ export const App: React.FC = () => {
 
   const handleExecutePayout = async (requestId: number) => {
     await runWrite(config.treasuryAddress, "execute_payout", [requestId]);
+  };
+
+  // Charter Amendment Actions
+  const handleProposeAmendment = async (
+    kind: number,
+    targetArticleId: number,
+    newText: string,
+    targetMember: string,
+    rationale: string
+  ) => {
+    await runWrite(config.charterAddress, "propose_amendment", [
+      kind,
+      targetArticleId,
+      newText,
+      targetMember,
+      rationale,
+    ]);
+    setIsProposeModalOpen(false);
+  };
+
+  const handleVoteAmendment = async (amendmentId: number, voteYes: boolean) => {
+    await runWrite(config.charterAddress, "vote_amendment", [amendmentId, voteYes]);
+  };
+
+  const handleFinalizeAmendment = async (amendmentId: number) => {
+    await runWrite(config.charterAddress, "finalize_amendment", [amendmentId]);
+  };
+
+  const handleCancelAmendment = async (amendmentId: number) => {
+    await runWrite(config.charterAddress, "cancel_amendment", [amendmentId]);
   };
 
   const handleSelectArticleAnchor = (articleId: number) => {
@@ -195,6 +227,13 @@ export const App: React.FC = () => {
             loading={amendmentsState.loading}
             error={amendmentsState.error}
             onRetry={amendmentsState.refetch}
+            connectedAccount={connectedAccount}
+            memberCount={dashboardState.data?.charterCounts.members || 1}
+            onOpenProposeModal={() => setIsProposeModalOpen(true)}
+            onVoteAmendment={handleVoteAmendment}
+            onFinalizeAmendment={handleFinalizeAmendment}
+            onCancelAmendment={handleCancelAmendment}
+            isExecuting={isExecuting}
           />
         )}
 
@@ -216,6 +255,15 @@ export const App: React.FC = () => {
         isOpen={isNewReqModalOpen}
         onClose={() => setIsNewReqModalOpen(false)}
         onSubmitRequest={handleSubmitRequest}
+        isExecuting={isExecuting}
+        connectedAccount={connectedAccount}
+      />
+
+      <ProposeAmendmentModal
+        isOpen={isProposeModalOpen}
+        onClose={() => setIsProposeModalOpen(false)}
+        activeArticles={dashboardState.data?.charterBundle.articles || []}
+        onSubmitPropose={handleProposeAmendment}
         isExecuting={isExecuting}
         connectedAccount={connectedAccount}
       />
