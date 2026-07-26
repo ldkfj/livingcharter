@@ -15,3 +15,8 @@ dist/
 !.env.example
 
 .secrets/
+
+# local AI-governance gate files (not part of the public project)
+/AGENTS.md
+/CLAUDE.md
+/GEMINI.md
