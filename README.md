@@ -1,4 +1,4 @@
-# LivingCharter
+﻿# LivingCharter
 
 A shared treasury governed by a **living charter**: spending rules written in plain language that members can amend by vote. Every spend request is judged on-chain by GenLayer validators, which independently fetch the request's public web evidence, read the current charter and the accumulated precedent log, and reach consensus on an `APPROVE` / `PARTIAL` / `DENY` ruling. Every ruling becomes a precedent that informs future rulings - and amending the charter visibly changes how the same request is decided.
 
@@ -17,7 +17,7 @@ A shared treasury (club, DAO working group, small fund) normally hands spending 
 | Treasury contract | [`0x99A0b62199b412421c6466E1C60e0C0D220D2F16`](https://explorer-studio.genlayer.com/address/0x99A0b62199b412421c6466E1C60e0C0D220D2F16) |
 | Contract source | [`contracts/charter.py`](contracts/charter.py), [`contracts/treasury.py`](contracts/treasury.py) |
 
-The deployed contracts carry **real multi-wallet usage**, not a single demo transaction: 4 spend requests covering all three verdicts, one appeal adjudicated and upheld, three ratified amendments, and 5 precedents — including the living-charter moment where a team-dinner request denied under charter v3 is partially approved under the amended article at charter v4. Every transaction hash is recorded in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md); all are `FINALIZED` with execution `SUCCESS`. (An earlier Treasury instance at `0xB984B0a79B9BC17C332017B0640Dc82eE6151393` holds two additional authentic denials from before an evidence-rendering fix — evidence strictness working as designed.)
+The deployed contracts carry **real multi-wallet usage**, not a single demo transaction: 4 spend requests covering all three verdicts, one appeal adjudicated and upheld, three ratified amendments, and 5 precedents - including the living-charter moment where a team-dinner request denied under charter v3 is partially approved under the amended article at charter v4. Every transaction hash is recorded in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md); all are `FINALIZED` with execution `SUCCESS`. (An earlier Treasury instance at `0xB984B0a79B9BC17C332017B0640Dc82eE6151393` holds two additional authentic denials from before an evidence-rendering fix - evidence strictness working as designed.)
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
@@ -25,10 +25,10 @@ Studionet is GenLayer's hosted development network; persistence is controlled by
 
 1. **Charter** (`contracts/charter.py`, deterministic): members, versioned articles, and a full amendment state machine (`PROPOSED → VOTING → RATIFIED/REJECTED/EXPIRED`) used both for policy changes and membership changes. One active member = one vote; strict majority; ratification re-validates preconditions against current state.
 2. **Treasury** (`contracts/treasury.py`): holds native GEN. A member submits a spend request with an amount, a purpose, and 1–3 **public evidence URLs** (mandatory). Deterministic guards run first (membership via cross-contract read, amount vs balance, cooldown, one open request per member, URL hygiene).
-3. **Adjudication** (the nondeterministic core): anyone triggers `adjudicate_request`. Inside `gl.vm.run_nondet_unsafe`, the leader **and** each validator independently fetch every evidence URL (`gl.nondet.web.render`, text mode), read the ratified charter and the last 10 precedent summaries, and run the same constrained evaluation (`gl.nondet.exec_prompt`). The validator accepts only if its own independently-computed decision matches the leader's, the strict JSON schema holds (exact keys, closed verdict set, decision-specific amount invariants, citations restricted to active articles), and PARTIAL amounts agree within ±10% of the requested amount. Consensus failure leaves state untouched; shared infrastructure failure becomes `UNDETERMINED` (retryable) — never a `DENY`.
-4. **Precedent log**: every accepted ruling is appended to an immutable event log and fed into future adjudications ("prior consensus rulings under this charter — follow them unless the charter text itself contradicts them"). Rulings have been observed citing earlier precedents by sequence number.
+3. **Adjudication** (the nondeterministic core): anyone triggers `adjudicate_request`. Inside `gl.vm.run_nondet_unsafe`, the leader **and** each validator independently fetch every evidence URL (`gl.nondet.web.render`, text mode), read the ratified charter and the last 10 precedent summaries, and run the same constrained evaluation (`gl.nondet.exec_prompt`). The validator accepts only if its own independently-computed decision matches the leader's, the strict JSON schema holds (exact keys, closed verdict set, decision-specific amount invariants, citations restricted to active articles), and PARTIAL amounts agree within ±10% of the requested amount. Consensus failure leaves state untouched; shared infrastructure failure becomes `UNDETERMINED` (retryable) - never a `DENY`.
+4. **Precedent log**: every accepted ruling is appended to an immutable event log and fed into future adjudications ("prior consensus rulings under this charter - follow them unless the charter text itself contradicts them"). Rulings have been observed citing earlier precedents by sequence number.
 5. **Appeal**: one appeal per request within a time window; the appeal adjudication re-runs the full evidence evaluation with the original ruling and the (untrusted-flagged) appeal argument in context. The appeal ruling is final; the systemic remedy afterwards is amending the charter.
-6. **Payout**: after the appeal window (or a final ruling), anyone can execute the payout — native GEN moves to the requester for the approved amount; zero-amount rulings close the request.
+6. **Payout**: after the appeal window (or a final ruling), anyone can execute the payout - native GEN moves to the requester for the approved amount; zero-amount rulings close the request.
 
 ## Frontend
 
@@ -37,17 +37,17 @@ React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go throug
 ## Repository layout
 
 ```
-contracts/   charter.py, treasury.py — GenVM Intelligent Contracts (Python)
+contracts/   charter.py, treasury.py - GenVM Intelligent Contracts (Python)
 frontend/    React DApp: read + write, wallet, truthful tx lifecycle
   scripts/integration/   the scripted multi-wallet journeys recorded in docs/DEPLOYMENTS.md
 tests/       49 pytest unit tests over a pure-Python GenVM stub
 docs/        DEPLOYMENTS.md (full tx audit trail) · VERSIONS.md (verified API surface) · SUBMISSION.md · REVIEWER-GUIDE.md
-scripts/     lint.ps1 — genvm-lint gate (must pass before any deployment)
+scripts/     lint.ps1 - genvm-lint gate (must pass before any deployment)
 ```
 
 ## Setup
 
-**1. Contract tests** (no GenLayer runtime needed — the GenVM surface is stubbed):
+**1. Contract tests** (no GenLayer runtime needed - the GenVM surface is stubbed):
 
 ```bash
 pip install -r requirements-dev.txt
@@ -75,8 +75,8 @@ The app refuses to start if either address is missing or looks like a placeholde
 
 ## Deploying your own instance
 
-1. Run the lint gate (above) — both contracts must pass.
-2. In [GenLayer Studio](https://studio.genlayer.com), deploy `contracts/charter.py` with `voting_period_seconds` (e.g. `300`). Require the transaction to be **FINALIZED with result SUCCESS** — both, always.
+1. Run the lint gate (above) - both contracts must pass.
+2. In [GenLayer Studio](https://studio.genlayer.com), deploy `contracts/charter.py` with `voting_period_seconds` (e.g. `300`). Require the transaction to be **FINALIZED with result SUCCESS** - both, always.
 3. From the deployer account, call `bootstrap(articles_json)` with a JSON array of 2–10 founding articles (each 20–2000 chars). Verify with `get_charter_bundle`.
 4. Deploy `contracts/treasury.py` with `charter_address` (step 2's address), `appeal_window_seconds`, `member_cooldown_seconds`. Verify with `get_treasury_state`.
 5. Fund it: call payable `fund` with a GEN value, then put both addresses in `frontend/.env`.
@@ -85,7 +85,7 @@ The app refuses to start if either address is missing or looks like a placeholde
 ## Security posture and honest limitations
 
 - All fetched web content, request purposes, and appeal arguments are treated as untrusted; the validator enforces a closed verdict set, amount bounds tied to the request, citations restricted to active articles, and exact-key schemas, so injected instructions cannot widen the decision space.
-- Evidence is truncated to 6,000 characters per URL (text rendering). Pages that do not expose the claimed facts in their text lead to denial under the charter's evidence article — strict by design, as the on-chain history shows.
+- Evidence is truncated to 6,000 characters per URL (text rendering). Pages that do not expose the claimed facts in their text lead to denial under the charter's evidence article - strict by design, as the on-chain history shows.
 - Infrastructure failure is never converted into a substantive denial (`UNDETERMINED`/`FAILED` paths preserve funds).
 - `npm audit` reports advisories on a transitive tooling path of `genlayer-js` (no upstream fix available); the runtime read/write paths do not use those modules.
 - Membership is wallet-based; the contract does not verify off-chain identity.
