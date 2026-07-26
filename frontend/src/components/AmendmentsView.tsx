@@ -3,6 +3,51 @@ import { AmendmentInfo } from "../types/contract";
 import { truncateAddress, formatTimestamp } from "../lib/formatters";
 import { Vote, Copy, Check, RefreshCw } from "lucide-react";
 
+const AMENDMENT_KIND_NAMES = [
+  "ADD_ARTICLE",
+  "REPLACE_ARTICLE",
+  "REPEAL_ARTICLE",
+  "ADD_MEMBER",
+  "REMOVE_MEMBER",
+] as const;
+
+function getKindName(kind: number): string {
+  return AMENDMENT_KIND_NAMES[kind] ?? `UNKNOWN_KIND_${kind}`;
+}
+
+function renderTarget(amendment: AmendmentInfo): React.ReactNode {
+  if (amendment.kind === 0) {
+    return (
+      <>
+        <strong>New article:</strong> {amendment.new_text}
+      </>
+    );
+  }
+
+  if (amendment.kind === 1) {
+    return (
+      <>
+        <strong>Replace Article {amendment.target_article_id}:</strong> {amendment.new_text}
+      </>
+    );
+  }
+
+  if (amendment.kind === 2) {
+    return <strong>Repeal Article {amendment.target_article_id}</strong>;
+  }
+
+  if (amendment.kind === 3 || amendment.kind === 4) {
+    return (
+      <>
+        <strong>{amendment.kind === 3 ? "Add member:" : "Remove member:"}</strong>{" "}
+        <span style={{ fontFamily: "var(--font-mono)" }}>{amendment.target_member}</span>
+      </>
+    );
+  }
+
+  return <span>Unknown amendment target</span>;
+}
+
 interface AmendmentsViewProps {
   amendments: AmendmentInfo[];
   loading: boolean;
@@ -84,15 +129,19 @@ export const AmendmentsView: React.FC<AmendmentsViewProps> = ({
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                 <span style={{ fontWeight: 700, fontFamily: "var(--font-mono)" }}>Motion #{am.id}</span>
                 <span className="badge" style={{ background: "rgba(245, 158, 11, 0.15)", color: "#fcd34d" }}>
-                  {am.kind_name}
+                  {getKindName(am.kind)}
                 </span>
                 <span className="badge badge-state">{am.state_name}</span>
               </div>
 
               <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                Deadline: {formatTimestamp(am.voting_deadline)}
+                Deadline: {formatTimestamp(am.deadline)}
               </span>
             </div>
+
+            <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: "0.75rem" }}>
+              {renderTarget(am)}
+            </p>
 
             <p style={{ fontSize: "0.92rem", color: "var(--text-primary)", marginBottom: "0.75rem" }}>
               {am.rationale}
@@ -107,8 +156,8 @@ export const AmendmentsView: React.FC<AmendmentsViewProps> = ({
               </div>
 
               <div style={{ display: "flex", gap: "1rem" }}>
-                <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>YES: {am.yes_votes}</span>
-                <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>NO: {am.no_votes}</span>
+                <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>YES: {am.yes}</span>
+                <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>NO: {am.no}</span>
               </div>
             </div>
           </div>

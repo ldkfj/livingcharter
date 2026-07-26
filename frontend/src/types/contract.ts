@@ -77,16 +77,16 @@ export interface TreasuryState {
 
 export interface AmendmentInfo {
   id: number;
-  proposer: string;
   kind: number;
-  kind_name: string;
-  target_id: number;
-  text_payload: string;
+  target_article_id: number;
+  new_text: string;
+  target_member: string;
+  proposer: string;
   rationale: string;
   state: number;
   state_name: string;
+  yes: number;
+  no: number;
+  deadline: number;
   created_at: number;
-  voting_deadline: number;
-  yes_votes: number;
-  no_votes: number;
 }
