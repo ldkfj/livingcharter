@@ -32,6 +32,13 @@ class UserData:
 - **Payable value accessor:** `gl.message.value` | Signature: `gl.message.value -> u256` | Source URL: https://docs.genlayer.com/developers/intelligent-contracts/features/transaction-context
 - **Balances documentation page:** `https://docs.genlayer.com/developers/intelligent-contracts/features/balances` now exists and states that it moved to and links to `features/value-transfers`; native balances are documented under the value-transfers page.
 
+## Frontend toolchain (verified 2026-07-27)
+- **genlayer-js:** `v1.1.8`
+- **React:** `v19.0.0`
+- **React-DOM:** `v19.0.0`
+- **Vite:** `v6.1.0`
+- **TypeScript:** `v5.7.3`
+
 ## Verification Metadata
 - **Source URLs:**
   - https://docs.genlayer.com/developers/intelligent-contracts/first-contract
@@ -45,7 +52,9 @@ class UserData:
   - https://docs.genlayer.com/developers/intelligent-contracts/features/interacting-with-intelligent-contracts
   - https://docs.genlayer.com/developers/intelligent-contracts/features/value-transfers
   - https://docs.genlayer.com/developers/intelligent-contracts/equivalence-principle
-- **Verification Date:** 2026-07-26
+  - https://docs.genlayer.com/developers/decentralized-applications/genlayer-js
+  - https://docs.genlayer.com/developers/decentralized-applications/reading-data
+- **Verification Date:** 2026-07-27
 
 ## Deployment Note
 Re-verify against the running Studio instance at deployment (Phase 6).
