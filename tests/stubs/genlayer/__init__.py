@@ -45,6 +45,9 @@ class TreeMap:
     def __init__(self, *args, **kwargs):
         self._dict = dict(*args, **kwargs)
 
+    def __class_getitem__(cls, item):
+        return cls
+
     def __getitem__(self, key: Any) -> Any:
         return self._dict[key]
 
@@ -81,6 +84,9 @@ class DynArray:
 
     def __init__(self, initial: list = None):
         self._list = list(initial) if initial is not None else []
+
+    def __class_getitem__(cls, item):
+        return cls
 
     def append(self, item: Any) -> None:
         self._list.append(item)
