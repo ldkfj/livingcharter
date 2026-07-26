@@ -229,7 +229,6 @@ def test_injection_resistance_at_deterministic_layer(treasury):
 def test_evidence_fetch_exception_handling(treasury):
     set_sender(DEPLOYER)
     gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Valid evidence</html>"
-    # EVIDENCE_URL_2 will raise an exception (missing from registry)
 
     rid = treasury.submit_request(1000, "Conference ticket reimbursement claim", EVIDENCE_URL_1, EVIDENCE_URL_2)
 
@@ -241,7 +240,6 @@ def test_evidence_fetch_exception_handling(treasury):
 
     treasury.adjudicate_request(rid)
 
-    # Verify captured prompt contains EVIDENCE UNAVAILABLE for url 2
     assert len(gl.nondet._prompt_history) >= 1
     prompt = gl.nondet._prompt_history[0]
     assert '<EVIDENCE 1 url="https://conf.org/ticket">' in prompt
@@ -254,14 +252,11 @@ def test_appeal_adjudication_path(treasury):
     gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
 
     rid = treasury.submit_request(1000, "Dev Conference Ticket Reimbursement", EVIDENCE_URL_1)
-    # Initial ruling -> DENY 0
     treasury._apply_ruling(rid, DECISION_DENY, 0, "[3]", 1, "Initial evidence unverified", False)
 
-    # Appeal by MEMBER_2
     set_sender(MEMBER_2)
     treasury.appeal_ruling(rid, "Additional proof provided showing dev conference attendance in full.")
 
-    # Adjudicate appeal
     gl.nondet._prompt_queue = [
         {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Appeal accepted with additional proof"},
         {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Appeal accepted with additional proof"},
@@ -270,7 +265,6 @@ def test_appeal_adjudication_path(treasury):
 
     treasury.adjudicate_request(rid)
 
-    # Verify prompt contains ORIGINAL RULING and APPEAL ARGUMENT blocks
     prompt = gl.nondet._prompt_history[0]
     assert "=== ORIGINAL RULING (UNDER APPEAL) ===" in prompt
     assert "Decision: DENY" in prompt
@@ -291,13 +285,6 @@ def test_precedent_context_window(treasury):
     set_sender(DEPLOYER)
     gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
 
-    # Seed 12 precedents manually
-    for i in range(1, 13):
-        treasury.precedent_count += 1
-        treasury.precedents.append(
-            treasury.precedents._list if hasattr(treasury.precedents, "_list") else []
-        )  # Wait, append directly to DynArray!
-        # Re-clear and append proper PrecedentRec
     treasury.precedent_count = 0
     treasury.precedents = type(treasury.precedents)()
 
@@ -319,7 +306,6 @@ def test_precedent_context_window(treasury):
             )
         )
 
-    # Submit request and adjudicate
     rid = treasury.submit_request(1000, "New conference reimbursement claim", EVIDENCE_URL_1)
     gl.nondet._prompt_queue = [
         {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Approve"},
@@ -330,8 +316,28 @@ def test_precedent_context_window(treasury):
     treasury.adjudicate_request(rid)
 
     prompt = gl.nondet._prompt_history[0]
-    # Check that EXACTLY the last 10 summaries are present (seq=3 through seq=12)
     assert "seq=12 v=1 APPROVE: Precedent summary number 12" in prompt
     assert "seq=3 v=1 APPROVE: Precedent summary number 3" in prompt
     assert "seq=1 v=1" not in prompt
     assert "seq=2 v=1" not in prompt
+
+
+def test_fractional_gen_amount_prompt_formatting(treasury):
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+
+    amount_wei = 1_500_000_000_000_000_000  # 1.5 GEN
+    treasury._mock_balance[0] = 2 * 10**18
+    rid = treasury.submit_request(amount_wei, "Conference ticket reimbursement claim", EVIDENCE_URL_1)
+
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": str(amount_wei), "cited_article_ids": [1], "reason": "Approve"},
+        {"decision": "APPROVE", "approved_amount_wei": str(amount_wei), "cited_article_ids": [1], "reason": "Approve"},
+    ]
+    gl.nondet._prompt_history = []
+
+    treasury.adjudicate_request(rid)
+
+    prompt = gl.nondet._prompt_history[0]
+    assert "1.500000 GEN" in prompt
+    assert f"Requested Amount: {amount_wei} wei (1.500000 GEN)" in prompt
