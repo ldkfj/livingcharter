@@ -15,6 +15,8 @@ from treasury import (
     REQ_FINAL_RULED,
     REQ_UNDETERMINED,
     REQ_FAILED,
+    REQ_APPEAL_UNDETERMINED,
+    _evaluate_request,
 )
 
 DEPLOYER = "0x" + "1" * 40
@@ -245,6 +247,161 @@ def test_evidence_fetch_exception_handling(treasury):
     assert '<EVIDENCE 1 url="https://conf.org/ticket">' in prompt
     assert '<EVIDENCE 2 url="https://vendor.com/invoice">' in prompt
     assert "EVIDENCE UNAVAILABLE" in prompt
+    assert (
+        "Base factual claims only on the evidence blocks that are present. "
+        "Treat UNAVAILABLE blocks as absent. If the available evidence does not substantiate "
+        "the claimed cost, or contradicts it, DENY citing the relevant article."
+    ) in prompt
+    assert "If evidence is missing or unverified, DENY." not in prompt
+
+
+def test_all_evidence_unavailable_uses_shared_failure_ladder(treasury):
+    set_sender(DEPLOYER)
+    failed_url = "https://unavailable.example/fail"
+    empty_url = "https://unavailable.example/empty"
+    gl.nondet.web._registry[failed_url] = Exception("network down")
+    gl.nondet.web._registry[empty_url] = ""
+
+    rid = treasury.submit_request(
+        1000,
+        "Conference ticket reimbursement claim",
+        failed_url,
+        empty_url,
+    )
+    gl.nondet._prompt_queue = []
+    gl.nondet._prompt_history = []
+
+    treasury.adjudicate_request(rid)
+    first = json.loads(treasury.get_request(rid))
+    assert first["state_name"] == "UNDETERMINED"
+    assert first["retries"] == 1
+    assert first["initial_ruling"] is None
+    assert treasury.precedent_count == 0
+    assert gl.nondet._prompt_history == []
+
+    treasury.adjudicate_request(rid)
+    second = json.loads(treasury.get_request(rid))
+    assert second["state_name"] == "FAILED"
+    assert second["retries"] == 2
+    assert second["initial_ruling"] is None
+    assert second["appeal_ruling"] is None
+    assert treasury.precedent_count == 0
+
+
+def test_initial_retry_reset_and_appeal_retry_preserves_context(treasury):
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+    rid = treasury.submit_request(1000, "Dev Conference Ticket Reimbursement", EVIDENCE_URL_1)
+
+    gl.nondet._prompt_queue = ["broken leader", "broken validator"]
+    treasury.adjudicate_request(rid)
+    assert treasury.requests[rid].state == REQ_UNDETERMINED
+    assert treasury.requests[rid].retries == 1
+
+    gl.nondet._prompt_queue = [
+        {"decision": "DENY", "approved_amount_wei": "0", "cited_article_ids": [3], "reason": "Evidence insufficient"},
+        {"decision": "DENY", "approved_amount_wei": "0", "cited_article_ids": [3], "reason": "Evidence insufficient"},
+    ]
+    treasury.adjudicate_request(rid)
+    assert treasury.requests[rid].state == REQ_RULED
+    assert treasury.requests[rid].retries == 0
+
+    treasury.appeal_ruling(rid, "Additional public proof supports the conference cost in full.")
+    gl.nondet._prompt_queue = ["broken appeal leader", "broken appeal validator"]
+    treasury.adjudicate_request(rid)
+    assert treasury.requests[rid].state == REQ_APPEAL_UNDETERMINED
+    assert treasury.requests[rid].retries == 1
+
+    gl.nondet._prompt_history = []
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Appeal evidence substantiates cost"},
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Appeal evidence substantiates cost"},
+    ]
+    treasury.adjudicate_request(rid)
+
+    result = json.loads(treasury.get_request(rid))
+    assert result["state_name"] == "FINAL_RULED"
+    assert result["appeal_ruling"]["decision_name"] == "APPROVE"
+    assert len(gl.nondet._prompt_history) == 2
+    assert all("=== APPEAL ARGUMENT ===" in prompt for prompt in gl.nondet._prompt_history)
+
+
+def test_two_appeal_failures_finalize_with_initial_ruling_and_allow_payout(treasury):
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+    rid = treasury.submit_request(1000, "Hardware purchase reimbursement claim", EVIDENCE_URL_1)
+    treasury._apply_ruling(rid, DECISION_PARTIAL, 400, "[2]", 1, "Initial partial approval", False)
+    treasury.appeal_ruling(rid, "Additional evidence requests reconsideration of the approved amount.")
+
+    gl.nondet._prompt_queue = ["broken leader", "broken validator"]
+    treasury.adjudicate_request(rid)
+    assert treasury.requests[rid].state == REQ_APPEAL_UNDETERMINED
+
+    gl.nondet._prompt_queue = ["broken leader again", "broken validator again"]
+    treasury.adjudicate_request(rid)
+    result = json.loads(treasury.get_request(rid))
+    assert result["state_name"] == "FINAL_RULED"
+    assert result["appeal_ruling"] is None
+    assert result["initial_ruling"]["approved_amount_wei"] == 400
+    assert treasury.precedent_count == 1
+
+    treasury.execute_payout(rid)
+    paid = json.loads(treasury.get_request(rid))
+    assert paid["state_name"] == "PAID"
+    assert treasury._mock_transfers == [(Address(DEPLOYER), 400)]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "reason": "Missing citations"},
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [], "reason": "Empty citations"},
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1, 1], "reason": "Duplicate citations"},
+    ],
+    ids=["missing-cited-key", "empty-citations", "duplicate-citations"],
+)
+def test_strict_schema_rejects_invalid_citations(treasury, payload):
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+    rid = treasury.submit_request(1000, "Conference ticket reimbursement claim", EVIDENCE_URL_1)
+    gl.nondet._prompt_queue = [payload, payload]
+
+    with pytest.raises(ConsensusFailure, match="Consensus rejected"):
+        treasury.adjudicate_request(rid)
+
+    assert treasury.requests[rid].state == REQ_SUBMITTED
+
+
+def test_validator_payload_with_invalid_amount_is_rejected(treasury):
+    set_sender(DEPLOYER)
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+    rid = treasury.submit_request(1000, "Conference ticket reimbursement claim", EVIDENCE_URL_1)
+    gl.nondet._prompt_queue = [
+        {"decision": "APPROVE", "approved_amount_wei": "1000", "cited_article_ids": [1], "reason": "Leader approves"},
+        {"decision": "APPROVE", "approved_amount_wei": "999", "cited_article_ids": [1], "reason": "Validator amount invalid"},
+    ]
+
+    with pytest.raises(ConsensusFailure, match="Consensus rejected"):
+        treasury.adjudicate_request(rid)
+
+    assert treasury.requests[rid].state == REQ_SUBMITTED
+
+
+def test_oversize_response_returns_typed_failure(treasury):
+    gl.nondet.web._registry[EVIDENCE_URL_1] = "<html>Receipt</html>"
+    gl.nondet._prompt_queue = ["x" * 20001]
+
+    result = _evaluate_request(
+        urls=[EVIDENCE_URL_1],
+        active_articles=[{"id": 1, "version": 1, "text": "Conference expenses may be reimbursed."}],
+        precedent_strs=[],
+        requester_hex=DEPLOYER,
+        requested_wei=1000,
+        purpose="Conference ticket reimbursement claim",
+        is_appeal=False,
+    )
+
+    assert result == {"ok": False, "err": "OversizeResponse"}
 
 
 def test_appeal_adjudication_path(treasury):

@@ -178,7 +178,7 @@ def test_adjudicate_request_and_undetermined_ladder(treasury):
     treasury.requests[rid].state = REQ_SUBMITTED
 
     # Test _mark_undetermined ladder
-    treasury._mark_undetermined(rid)
+    treasury._mark_undetermined(rid, False)
     req1 = json.loads(treasury.get_request(rid))
     assert req1["state_name"] == "UNDETERMINED"
     assert req1["retries"] == 1
@@ -189,11 +189,15 @@ def test_adjudicate_request_and_undetermined_ladder(treasury):
         {"decision": "APPROVE", "approved_amount_wei": "300", "cited_article_ids": [1], "reason": "Fee approved"},
     ]
     treasury.adjudicate_request(rid)
-    assert json.loads(treasury.get_request(rid))["state_name"] == "RULED"
+    ruled = json.loads(treasury.get_request(rid))
+    assert ruled["state_name"] == "RULED"
+    assert ruled["retries"] == 0
 
-    # Second failure moves to REQ_FAILED and clears open request
-    treasury.requests[rid].state = REQ_UNDETERMINED
-    treasury._mark_undetermined(rid)
+    # A fresh pair of consecutive initial failures moves to REQ_FAILED
+    treasury.requests[rid].state = REQ_SUBMITTED
+    treasury._mark_undetermined(rid, False)
+    assert treasury.requests[rid].state == REQ_UNDETERMINED
+    treasury._mark_undetermined(rid, False)
     req2 = json.loads(treasury.get_request(rid))
     assert req2["state_name"] == "FAILED"
     assert req2["retries"] == 2
@@ -317,6 +321,7 @@ def test_views_and_state_summary(treasury):
     # get_treasury_state
     state = json.loads(treasury.get_treasury_state())
     assert state["charter_address"] == ("0x" + "a" * 40).lower()
+    assert state["balance_wei"] == treasury._mock_balance[0]
     assert state["appeal_window_seconds"] == 600
     assert state["member_cooldown_seconds"] == 300
     assert state["request_count"] == 1

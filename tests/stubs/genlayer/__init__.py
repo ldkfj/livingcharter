@@ -294,6 +294,8 @@ class Contract:
 
     @property
     def balance(self) -> int:
+        if hasattr(self, "_mock_balance"):
+            return self._mock_balance[0]
         return getattr(self, "_mock_contract_balance", 10**18)
 
 

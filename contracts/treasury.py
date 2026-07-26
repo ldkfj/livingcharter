@@ -844,6 +844,7 @@ class Treasury(gl.Contract):
     def get_treasury_state(self) -> str:
         charter_hex = self.charter_address.as_hex if hasattr(self.charter_address, "as_hex") else str(self.charter_address)
         res = {
+            "balance_wei": int(self.balance),
             "charter_address": charter_hex,
             "appeal_window_seconds": self.appeal_window_seconds,
             "member_cooldown_seconds": self.member_cooldown_seconds,
