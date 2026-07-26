@@ -6,11 +6,12 @@ import {
   validatePurpose,
   validateEvidenceUrls,
 } from "../lib/validators";
+import type { WriteResult } from "../lib/txEngine";
 
 interface NewRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitRequest: (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => Promise<void>;
+  onSubmitRequest: (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => Promise<WriteResult>;
   isExecuting: boolean;
   connectedAccount: string | null;
 }
@@ -95,7 +96,10 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
       const url2 = activeUrls[1] || "";
       const url3 = activeUrls[2] || "";
 
-      await onSubmitRequest(amountWei, purpose.trim(), url1, url2, url3);
+      const result = await onSubmitRequest(amountWei, purpose.trim(), url1, url2, url3);
+      if (result.kind === "failed") {
+        setFormError(result.error);
+      }
     } catch (err: any) {
       setFormError(err?.message || "Failed to submit request.");
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { AmendmentInfo } from "../types/contract";
 import { truncateAddress, formatTimestamp } from "../lib/formatters";
 import { Vote, Copy, Check, RefreshCw, Plus, ThumbsUp, ThumbsDown, CheckCircle, XCircle } from "lucide-react";
+import type { WriteResult } from "../lib/txEngine";
 
 interface AmendmentsViewProps {
   amendments: AmendmentInfo[];
@@ -11,9 +12,9 @@ interface AmendmentsViewProps {
   connectedAccount: string | null;
   memberCount: number;
   onOpenProposeModal: () => void;
-  onVoteAmendment: (amendmentId: number, voteYes: boolean) => Promise<void>;
-  onFinalizeAmendment: (amendmentId: number) => Promise<void>;
-  onCancelAmendment: (amendmentId: number) => Promise<void>;
+  onVoteAmendment: (amendmentId: number, voteYes: boolean) => Promise<WriteResult>;
+  onFinalizeAmendment: (amendmentId: number) => Promise<WriteResult>;
+  onCancelAmendment: (amendmentId: number) => Promise<WriteResult>;
   isExecuting: boolean;
 }
 
@@ -54,8 +55,8 @@ export const AmendmentsView: React.FC<AmendmentsViewProps> = ({
   };
 
   const handleVote = async (amendmentId: number, voteYes: boolean) => {
-    await onVoteAmendment(amendmentId, voteYes);
-    if (connectedAccount) {
+    const result = await onVoteAmendment(amendmentId, voteYes);
+    if (result.kind === "success" && connectedAccount) {
       setVotedMap((prev) => ({ ...prev, [`${connectedAccount.toLowerCase()}_${amendmentId}`]: true }));
     }
   };

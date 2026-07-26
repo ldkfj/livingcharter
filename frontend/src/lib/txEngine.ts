@@ -26,6 +26,11 @@ export interface TxStatusState {
   elapsedSeconds: number;
 }
 
+export type WriteResult =
+  | { kind: "success"; hash: string }
+  | { kind: "cancelled" }
+  | { kind: "failed"; error: string };
+
 export const ERROR_MAPPINGS: Record<string, string> = {
   E_NOT_BOOTSTRAPPED: "The charter has not been bootstrapped with founding articles yet.",
   E_NOT_MEMBER: "Your connected wallet is not an active voting member of LivingCharter.",

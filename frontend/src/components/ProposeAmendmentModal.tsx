@@ -6,6 +6,7 @@ import {
   validateNewText,
   validateAddressHex,
 } from "../lib/validators";
+import type { WriteResult } from "../lib/txEngine";
 
 interface ProposeAmendmentModalProps {
   isOpen: boolean;
@@ -17,7 +18,7 @@ interface ProposeAmendmentModalProps {
     newText: string,
     targetMember: string,
     rationale: string
-  ) => Promise<void>;
+  ) => Promise<WriteResult>;
   isExecuting: boolean;
   connectedAccount: string | null;
 }
@@ -84,13 +85,16 @@ export const ProposeAmendmentModal: React.FC<ProposeAmendmentModalProps> = ({
     }
 
     try {
-      await onSubmitPropose(
+      const result = await onSubmitPropose(
         kind,
         kind === 1 || kind === 2 ? targetArticleId : 0,
         kind === 0 || kind === 1 ? newText.trim() : "",
         kind === 3 || kind === 4 ? targetMember.trim() : "",
         rationale.trim()
       );
+      if (result.kind === "failed") {
+        setFormError(result.error);
+      }
     } catch (err: any) {
       setFormError(err?.message || "Failed to submit proposal.");
     }

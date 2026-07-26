@@ -1,10 +1,11 @@
 import React, { useState, useRef } from "react";
 import { Coins, Send } from "lucide-react";
 import { parseGenToWei, validateGenAmount } from "../lib/validators";
+import type { WriteResult } from "../lib/txEngine";
 
 interface FundFormProps {
   connectedAccount: string | null;
-  onFundSubmit: (valueWei: bigint) => Promise<void>;
+  onFundSubmit: (valueWei: bigint) => Promise<WriteResult>;
   isExecuting: boolean;
 }
 
@@ -30,7 +31,10 @@ export const FundForm: React.FC<FundFormProps> = ({
 
     try {
       const wei = parseGenToWei(amountStr);
-      await onFundSubmit(wei);
+      const result = await onFundSubmit(wei);
+      if (result.kind === "failed") {
+        setFieldError(result.error);
+      }
     } catch (err: any) {
       setFieldError(err?.message || "Invalid amount");
       if (inputRef.current) inputRef.current.focus();

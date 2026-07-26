@@ -18,7 +18,11 @@ import {
 } from "./hooks/useContractData";
 import { connectEip1193Wallet, subscribeWalletEvents, unsubscribeWalletEvents } from "./lib/wallet";
 import { createWriteClient } from "./lib/genlayerClient";
-import { executeWriteTransaction, TxStatusState } from "./lib/txEngine";
+import {
+  executeWriteTransaction,
+  TxStatusState,
+  type WriteResult,
+} from "./lib/txEngine";
 
 export const App: React.FC = () => {
   const { config, errors } = getEnvConfig();
@@ -98,11 +102,14 @@ export const App: React.FC = () => {
     method: string,
     args: any[] = [],
     valueWei: bigint = 0n
-  ) => {
-    if (!connectedAccount) return;
+  ): Promise<WriteResult> => {
+    if (!connectedAccount) {
+      return { kind: "failed", error: "Connect a wallet before submitting a transaction." };
+    }
+
     setIsExecuting(true);
     try {
-      await executeWriteTransaction(
+      const hash = await executeWriteTransaction(
         createWriteClient(connectedAccount),
         targetAddr,
         method,
@@ -111,8 +118,13 @@ export const App: React.FC = () => {
         (st) => setTxStatus(st)
       );
       refetchAll();
+      return { kind: "success", hash };
     } catch (err: any) {
-      // Status stream handles error display
+      const error = err?.message || String(err);
+      if (error === "USER_CANCELLED") {
+        return { kind: "cancelled" };
+      }
+      return { kind: "failed", error };
     } finally {
       setIsExecuting(false);
     }
@@ -120,24 +132,27 @@ export const App: React.FC = () => {
 
   // Treasury Actions
   const handleFundSubmit = async (valueWei: bigint) => {
-    await runWrite(config.treasuryAddress, "fund", [], valueWei);
+    return runWrite(config.treasuryAddress, "fund", [], valueWei);
   };
 
   const handleSubmitRequest = async (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => {
-    await runWrite(config.treasuryAddress, "submit_request", [amountWei, purpose, url1, url2, url3]);
-    setIsNewReqModalOpen(false);
+    const result = await runWrite(config.treasuryAddress, "submit_request", [amountWei, purpose, url1, url2, url3]);
+    if (result.kind === "success") {
+      setIsNewReqModalOpen(false);
+    }
+    return result;
   };
 
   const handleAdjudicateRequest = async (requestId: number) => {
-    await runWrite(config.treasuryAddress, "adjudicate_request", [requestId]);
+    return runWrite(config.treasuryAddress, "adjudicate_request", [requestId]);
   };
 
   const handleAppealRuling = async (requestId: number, appealArg: string) => {
-    await runWrite(config.treasuryAddress, "appeal_ruling", [requestId, appealArg]);
+    return runWrite(config.treasuryAddress, "appeal_ruling", [requestId, appealArg]);
   };
 
   const handleExecutePayout = async (requestId: number) => {
-    await runWrite(config.treasuryAddress, "execute_payout", [requestId]);
+    return runWrite(config.treasuryAddress, "execute_payout", [requestId]);
   };
 
   // Charter Amendment Actions
@@ -148,26 +163,29 @@ export const App: React.FC = () => {
     targetMember: string,
     rationale: string
   ) => {
-    await runWrite(config.charterAddress, "propose_amendment", [
+    const result = await runWrite(config.charterAddress, "propose_amendment", [
       kind,
       targetArticleId,
       newText,
       targetMember,
       rationale,
     ]);
-    setIsProposeModalOpen(false);
+    if (result.kind === "success") {
+      setIsProposeModalOpen(false);
+    }
+    return result;
   };
 
   const handleVoteAmendment = async (amendmentId: number, voteYes: boolean) => {
-    await runWrite(config.charterAddress, "vote_amendment", [amendmentId, voteYes]);
+    return runWrite(config.charterAddress, "vote_amendment", [amendmentId, voteYes]);
   };
 
   const handleFinalizeAmendment = async (amendmentId: number) => {
-    await runWrite(config.charterAddress, "finalize_amendment", [amendmentId]);
+    return runWrite(config.charterAddress, "finalize_amendment", [amendmentId]);
   };
 
   const handleCancelAmendment = async (amendmentId: number) => {
-    await runWrite(config.charterAddress, "cancel_amendment", [amendmentId]);
+    return runWrite(config.charterAddress, "cancel_amendment", [amendmentId]);
   };
 
   const handleSelectArticleAnchor = (articleId: number) => {

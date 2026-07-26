@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { RequestInfo, RulingInfo } from "../types/contract";
 import { formatWeiToGen, truncateAddress, formatTimestamp } from "../lib/formatters";
 import { validateAppealArgument } from "../lib/validators";
+import type { WriteResult } from "../lib/txEngine";
 import {
   FileText,
   Copy,
@@ -25,9 +26,9 @@ interface RequestsViewProps {
   onSelectArticleAnchor?: (articleId: number) => void;
   connectedAccount: string | null;
   onOpenNewRequestModal: () => void;
-  onAdjudicateRequest: (requestId: number) => Promise<void>;
-  onAppealRuling: (requestId: number, appealArgument: string) => Promise<void>;
-  onExecutePayout: (requestId: number) => Promise<void>;
+  onAdjudicateRequest: (requestId: number) => Promise<WriteResult>;
+  onAppealRuling: (requestId: number, appealArgument: string) => Promise<WriteResult>;
+  onExecutePayout: (requestId: number) => Promise<WriteResult>;
   isExecuting: boolean;
 }
 
@@ -105,9 +106,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
 
     try {
       setAppealError(null);
-      await onAppealRuling(selectedReq.id, appealArg.trim());
-      setShowAppealForm(false);
-      setAppealArg("");
+      const result = await onAppealRuling(selectedReq.id, appealArg.trim());
+      if (result.kind === "success") {
+        setShowAppealForm(false);
+        setAppealArg("");
+      } else if (result.kind === "failed") {
+        setAppealError(result.error);
+      }
     } catch (err: any) {
       setAppealError(err?.message || "Failed to submit appeal.");
     }

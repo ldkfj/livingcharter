@@ -3,6 +3,7 @@ import { DashboardData } from "../hooks/useContractData";
 import { formatWeiToGen, truncateAddress } from "../lib/formatters";
 import { CharterPanel } from "./CharterPanel";
 import { FundForm } from "./FundForm";
+import type { WriteResult } from "../lib/txEngine";
 import {
   Coins,
   ShieldCheck,
@@ -25,7 +26,7 @@ interface DashboardViewProps {
   error: string | null;
   onRetry: () => void;
   connectedAccount?: string | null;
-  onFundSubmit?: (valueWei: bigint) => Promise<void>;
+  onFundSubmit?: (valueWei: bigint) => Promise<WriteResult>;
   isExecuting?: boolean;
 }
 
