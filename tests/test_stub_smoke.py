@@ -57,8 +57,17 @@ def test_gl_namespace_and_types():
     def sample_write():
         return 100
 
+    @gl.public.write.payable
+    def sample_payable():
+        return 200
+
     assert sample_view() == 42
     assert sample_write() == 100
+    assert sample_payable() == 200
+
+    gl.message.value = 500
+    assert gl.message.value == 500
+
     assert u8 is int
     assert u32 is int
     assert u64 is int

@@ -120,18 +120,25 @@ class MessageContext:
 
     def __init__(self):
         self.sender_address: Address = Address("0x" + "1" * 40)
+        self.value: int = 0
+
+
+class WriteDecorator:
+    """Callable wrapper for gl.public.write supporting @gl.public.write and @gl.public.write.payable."""
+
+    def __call__(self, func):
+        return func
+
+    def payable(self, func):
+        return func
 
 
 class PublicNamespace:
     """Stub for gl.public decorators."""
 
-    @staticmethod
-    def view(func):
-        return func
-
-    @staticmethod
-    def write(func):
-        return func
+    def __init__(self):
+        self.view = lambda func: func
+        self.write = WriteDecorator()
 
 
 def _is_storage_type(field_type: Any, target_cls: type, type_name: str) -> bool:
