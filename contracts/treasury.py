@@ -25,6 +25,12 @@ Constants:
         REQ_CLOSED = 5
         REQ_UNDETERMINED = 6
         REQ_FAILED = 7
+        REQ_APPEAL_UNDETERMINED = 8
+
+    Undetermined retry behavior:
+        Initial adjudication failures move SUBMITTED -> UNDETERMINED -> FAILED.
+        Appeal adjudication failures move APPEALED -> APPEAL_UNDETERMINED -> FINAL_RULED;
+        exhausting the appeal retry preserves the initial ruling as the final outcome.
 
 Error Codes:
     E_ZERO_FUNDING — Funding value must be greater than zero
@@ -67,6 +73,7 @@ REQ_PAID = 4
 REQ_CLOSED = 5
 REQ_UNDETERMINED = 6
 REQ_FAILED = 7
+REQ_APPEAL_UNDETERMINED = 8
 
 STATE_NAMES = [
     "SUBMITTED",
@@ -77,6 +84,7 @@ STATE_NAMES = [
     "CLOSED",
     "UNDETERMINED",
     "FAILED",
+    "APPEAL_UNDETERMINED",
 ]
 
 
@@ -463,6 +471,7 @@ class Treasury(gl.Contract):
             req.state = REQ_RULED
             req.ruled_at = now
             req.appeal_deadline = now + self.appeal_window_seconds
+            req.retries = 0
 
         precedent = PrecedentRec(
             seq=seq,
@@ -489,11 +498,13 @@ class Treasury(gl.Contract):
             (D) Validator fn: runs own _evaluate_request and enforces deterministic payload checks + semantic agreement.
             (E) VM execution via gl.vm.run_nondet_unsafe:
                 - Accepted ok:True -> applies ruling via _apply_ruling (state becomes RULED or FINAL_RULED).
-                - Accepted ok:False (shared failure) -> marks undetermined via _mark_undetermined.
+                - Accepted ok:False (shared failure) -> marks the current adjudication phase undetermined.
                 - Consensus rejection (wrapper raises ConsensusFailure) -> transaction rejected, state untouched.
 
         UNDETERMINED vs DENY:
             UNDETERMINED signifies shared infrastructure or LLM failure (allows retry without prejudice).
+            APPEAL_UNDETERMINED preserves the appeal context for its retry; a second shared
+            appeal failure produces FINAL_RULED with no appeal ruling, so the initial ruling stands.
             DENY is an explicit substantive rejection based on charter rules or evidence failure.
         """
         if request_id not in self.requests:
@@ -502,7 +513,7 @@ class Treasury(gl.Contract):
         req = self.requests[request_id]
         if req.state in (REQ_SUBMITTED, REQ_UNDETERMINED):
             is_appeal = False
-        elif req.state == REQ_APPEALED:
+        elif req.state in (REQ_APPEALED, REQ_APPEAL_UNDETERMINED):
             is_appeal = True
         else:
             raise Exception("E_BAD_STATE")
@@ -637,19 +648,25 @@ class Treasury(gl.Contract):
                 is_appeal=is_appeal,
             )
         else:
-            self._mark_undetermined(request_id)
+            self._mark_undetermined(request_id, is_appeal)
 
-    def _mark_undetermined(self, request_id: int):
+    def _mark_undetermined(self, request_id: int, is_appeal: bool):
         if request_id not in self.requests:
             raise Exception("E_REQUEST_NOT_FOUND")
 
         req = self.requests[request_id]
         req.retries += 1
-        if req.retries <= 1:
-            req.state = REQ_UNDETERMINED
+        if is_appeal:
+            if req.retries <= 1:
+                req.state = REQ_APPEAL_UNDETERMINED
+            else:
+                req.state = REQ_FINAL_RULED
         else:
-            req.state = REQ_FAILED
-            self.open_request[req.requester] = 0
+            if req.retries <= 1:
+                req.state = REQ_UNDETERMINED
+            else:
+                req.state = REQ_FAILED
+                self.open_request[req.requester] = 0
 
     @gl.public.write
     def appeal_ruling(self, request_id: int, argument: str):
