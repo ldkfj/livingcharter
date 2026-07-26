@@ -30,7 +30,7 @@ class UserData:
 - **Native transfer to Intelligent Contract:** `gl.get_contract_at(recipient).emit_transfer(value=u256(amount))` | Signature: `gl.get_contract_at(to: Address).emit_transfer(value: u256, on: str = 'finalized') -> None` | Source URL: https://docs.genlayer.com/developers/intelligent-contracts/features/value-transfers
 - **Native transfer to EOA:** `@gl.evm.contract_interface class _Recipient: class View: pass; class Write: pass; _Recipient(Address(recipient)).emit_transfer(value=v)` | Signature: `_Recipient(Address(to)).emit_transfer(value: u256)` | Source URL: https://docs.genlayer.com/developers/intelligent-contracts/features/value-transfers
 - **Payable value accessor:** `gl.message.value` | Signature: `gl.message.value -> u256` | Source URL: https://docs.genlayer.com/developers/intelligent-contracts/features/transaction-context
-- **Balances documentation page:** `https://docs.genlayer.com/developers/intelligent-contracts/features/balances` now exists and redirects to `features/value-transfers`; native balances are documented under the value-transfers page.
+- **Balances documentation page:** `https://docs.genlayer.com/developers/intelligent-contracts/features/balances` now exists and states that it moved to and links to `features/value-transfers`; native balances are documented under the value-transfers page.
 
 ## Verification Metadata
 - **Source URLs:**
