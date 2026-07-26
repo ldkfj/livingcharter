@@ -40,10 +40,14 @@ class UserData:
 - **TypeScript:** `v5.9.3`
 
 ## Frontend write path (verified 2026-07-27)
+- **Create write client:** `createClient({ chain: studionet, endpoint: "https://studio.genlayer.com/api", account: accountAddress })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Request EIP-1193 accounts:** `ethereum.request({ method: "eth_requestAccounts" })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Switch EIP-1193 chain:** `ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0xF22F" }] })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Add EIP-1193 chain:** `ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0xF22F", chainName: "GenLayer Studionet", ... }] })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
+- **Query EIP-1193 chain ID:** `ethereum.request({ method: "eth_chainId" })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 - **Write contract transaction:** `client.writeContract({ address, functionName, args, value })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 - **Wait for transaction receipt:** `client.waitForTransactionReceipt({ hash, status, interval, retries })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 - **Fetch transaction status:** `client.getTransaction({ hash })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/querying-a-transaction
-- **Connect wallet to Studionet network:** `client.connect("studionet")` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 
 ## Verification Metadata
 - **Source URLs:**
