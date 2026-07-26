@@ -76,6 +76,17 @@ Spend requests (Treasury v2):
 
 Final state: balance 0.95 GEN; 4 requests all terminal (PAID/CLOSED/CLOSED/PAID); 5 precedents; the same request type denied under charter v3 (precedent #4) is partially approved under v4 (precedent #5) — the living-charter loop demonstrated on-chain.
 
-## Final submission instance
+## Final submission instance (decided 2026-07-27)
 
-_Recommendation: adopt Charter + Treasury v2 above as the submission deployment — they already carry genuine multi-wallet activity. Decision at Phase 6. Never put placeholder addresses in `.env`._
+Charter + Treasury v2 above ARE the submission deployment (user-approved) — they carry genuine multi-wallet activity.
+
+## Release (2026-07-27)
+
+| Item | Value |
+| --- | --- |
+| Public repository | https://github.com/ldkfj/livingcharter (branch `master`) |
+| Live application | https://livingcharter.vercel.app (Vercel project `livingcharter`, framework Vite, output `dist`) |
+| Production env | `VITE_CHARTER_ADDRESS`, `VITE_TREASURY_ADDRESS` set to the addresses above (public values, not secrets) |
+| Push/deploy executed by | GPT/Codex under an explicit per-task user override of the standing no-push rule; verified by Claude (repo content, 58-commit HEAD `8e54332`, live HTTP 200 + correct Studionet reads) |
+
+Note: `.secrets/` (testnet bot keys) and `frontend/.env` are gitignored and verified absent from the published history.
