@@ -1,4 +1,4 @@
-"""Pure-Python GenLayer runtime stub for unit testing deterministic contract logic."""
+"""Pure-Python GenLayer runtime stub for unit testing deterministic contract logic and nondet adjudication."""
 
 from typing import Any, Iterator
 
@@ -141,6 +141,118 @@ class PublicNamespace:
         self.write = WriteDecorator()
 
 
+class WebResponse:
+    """Stub HTTP response object."""
+
+    def __init__(self, body: str | bytes = "", status_code: int = 200):
+        if isinstance(body, str):
+            self.body = body.encode("utf-8")
+        else:
+            self.body = body
+        self.status_code = status_code
+
+
+class WebNamespace:
+    """Stub for gl.nondet.web."""
+
+    def __init__(self):
+        self._registry: dict[str, Any] = {}
+
+    def render(self, url: str, mode: str = "html") -> str:
+        if url in self._registry:
+            val = self._registry[url]
+            if isinstance(val, Exception):
+                raise val
+            return str(val)
+        raise Exception(f"404 Web fetch error for {url}")
+
+    def get(self, url: str) -> WebResponse:
+        if url in self._registry:
+            val = self._registry[url]
+            if isinstance(val, Exception):
+                raise val
+            return WebResponse(body=str(val))
+        return WebResponse(body="EVIDENCE UNAVAILABLE")
+
+    def request(self, url: str, method: str = "GET", body: dict = None) -> WebResponse:
+        return self.get(url)
+
+
+class NondetNamespace:
+    """Stub for gl.nondet."""
+
+    def __init__(self):
+        self.web = WebNamespace()
+        self._prompt_queue: list[Any] = []
+        self._prompt_history: list[str] = []
+
+    def exec_prompt(self, prompt: str, response_format: str = "text", images: list = None) -> Any:
+        self._prompt_history.append(prompt)
+        if not self._prompt_queue:
+            raise Exception("Stub _prompt_queue is empty")
+        item = self._prompt_queue.pop(0)
+        if isinstance(item, Exception):
+            raise item
+        return item
+
+
+class ConsensusFailure(Exception):
+    """Raised when VM nondet consensus is rejected by validator."""
+    pass
+
+
+class Return:
+    """VM Return wrapper for leader result passed to validator."""
+
+    def __init__(self, calldata: Any):
+        self.calldata = calldata
+
+
+class VMNamespace:
+    """Stub for gl.vm."""
+
+    def __init__(self):
+        self.Return = Return
+        self.ConsensusFailure = ConsensusFailure
+
+    def run_nondet_unsafe(self, leader_fn, validator_fn) -> Any:
+        try:
+            leader_res = leader_fn()
+            wrapped = Return(leader_res)
+        except Exception as e:
+            wrapped = e
+
+        accepted = validator_fn(wrapped)
+        if accepted:
+            if isinstance(wrapped, Exception):
+                raise wrapped
+            return leader_res
+        raise ConsensusFailure("Consensus rejected")
+
+
+class ContractRef:
+    """Stub reference for cross-contract calls."""
+
+    def __init__(self, addr: Address, instance: Any = None):
+        self.address = addr
+        self._instance = instance
+        self.balance = 10**18
+
+    def view(self):
+        if self._instance is not None:
+            return self._instance
+        raise NotImplementedError("Cross-contract target instance not registered")
+
+    def emit_transfer(self, value: int = 0, on: str = "finalized"):
+        pass
+
+    def emit(self, value: int = 0, on: str = "finalized"):
+        class Emitter:
+            def __getattr__(self, name):
+                return lambda *args, **kwargs: None
+        return Emitter()
+
+
 def _is_storage_type(field_type: Any, target_cls: type, type_name: str) -> bool:
     if field_type is target_cls or getattr(field_type, "__origin__", None) is target_cls:
         return True
@@ -168,6 +280,10 @@ class Contract:
 
         cls.__init__ = __init__
 
+    @property
+    def balance(self) -> int:
+        return getattr(self, "_mock_contract_balance", 10**18)
+
 
 class GenLayerNamespace:
     """Stub for gl namespace."""
@@ -176,6 +292,14 @@ class GenLayerNamespace:
         self.Contract = Contract
         self.public = PublicNamespace()
         self.message = MessageContext()
+        self.nondet = NondetNamespace()
+        self.vm = VMNamespace()
+        self._contracts_registry: dict[str, Any] = {}
+
+    def get_contract_at(self, addr: Any) -> ContractRef:
+        addr_hex = addr.as_hex if hasattr(addr, "as_hex") else str(addr)
+        inst = self._contracts_registry.get(addr_hex.lower())
+        return ContractRef(Address(addr_hex), inst)
 
 
 gl = GenLayerNamespace()
