@@ -48,6 +48,9 @@ class UserData:
 - **Write contract transaction:** `client.writeContract({ address, functionName, args, value })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 - **Wait for transaction receipt:** `client.waitForTransactionReceipt({ hash, status, interval, retries })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
 - **Fetch transaction status:** `client.getTransaction({ hash })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/querying-a-transaction
+- **Transaction status fields:** `status` is the numeric protocol status and `statusName` is the `TransactionStatus` enum name used for UI progress; terminal success requires `statusName === TransactionStatus.FINALIZED` | Source URL: https://docs.genlayer.com/api-references/genlayer-js
+- **Execution outcome fields:** `txExecutionResult` is numeric and `txExecutionResultName` is the `ExecutionResult` enum name; only `ExecutionResult.FINISHED_WITH_RETURN` is execution success, while `FINISHED_WITH_ERROR` is failure and `NOT_VOTED` is incomplete | Source URL: https://docs.genlayer.com/api-references/genlayer-js
+- **Studionet receipt compatibility:** current Studionet receipts also retain `consensus_data.leader_receipt[].execution_result` (`SUCCESS`/`ERROR`) and `genvm_result` diagnostics; the frontend accepts this explicit live shape as a fallback and rejects unknown execution-result shapes.
 
 ## Verification Metadata
 - **Source URLs:**

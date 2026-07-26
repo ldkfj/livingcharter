@@ -17,6 +17,7 @@ import {
   usePrecedents,
 } from "./hooks/useContractData";
 import { connectEip1193Wallet, subscribeWalletEvents, unsubscribeWalletEvents } from "./lib/wallet";
+import { createWriteClient } from "./lib/genlayerClient";
 import { executeWriteTransaction, TxStatusState } from "./lib/txEngine";
 
 export const App: React.FC = () => {
@@ -102,7 +103,7 @@ export const App: React.FC = () => {
     setIsExecuting(true);
     try {
       await executeWriteTransaction(
-        connectedAccount,
+        createWriteClient(connectedAccount),
         targetAddr,
         method,
         args,

@@ -1,4 +1,11 @@
-import { createWriteClient, genlayerClient } from "./genlayerClient";
+import {
+  ExecutionResult,
+  TransactionStatus,
+  type DebugTraceResult,
+  type GenLayerTransaction,
+  type TransactionHash,
+} from "genlayer-js/types";
+import type { createWriteClient } from "./genlayerClient";
 
 export type TxStage =
   | "IDLE"
@@ -7,6 +14,7 @@ export type TxStage =
   | "CONSENSUS_PROGRESS"
   | "FINALIZED_SUCCESS"
   | "FINALIZED_ERROR"
+  | "TIMEOUT"
   | "CANCELLED";
 
 export interface TxStatusState {
@@ -24,7 +32,7 @@ export const ERROR_MAPPINGS: Record<string, string> = {
   E_OPEN_REQUEST_EXISTS: "You already have an open spend request pending adjudication or payout.",
   E_COOLDOWN_ACTIVE: "Member cooldown active. Please wait 60 seconds between spend requests.",
   E_INVALID_AMOUNT: "Invalid spend request amount. Must be greater than 0 GEN.",
-  E_INSUFFICIENT_FUNDS: "The Treasury does not have sufficient GEN balance for this payout.",
+  E_INSUFFICIENT_BALANCE: "The Treasury does not have sufficient GEN balance for this payout.",
   E_RATIONALE_TOO_LONG: "Amendment rationale exceeds the 500 character limit.",
   E_INVALID_ARTICLE_LENGTH: "Article text must be between 20 and 2000 characters.",
   E_INVALID_ARTICLE_TARGET: "Target article ID does not exist or is not active.",
@@ -56,13 +64,7 @@ export const ERROR_MAPPINGS: Record<string, string> = {
 export function extractErrorCode(errMsg: string | undefined | null): { rawCode: string | null; humanMsg: string } {
   if (!errMsg) return { rawCode: null, humanMsg: "Transaction execution failed." };
 
-  for (const [code, explanation] of Object.entries(ERROR_MAPPINGS)) {
-    if (errMsg.includes(code)) {
-      return { rawCode: code, humanMsg: explanation };
-    }
-  }
-
-  const match = errMsg.match(/Exception: (E_[A_Z0-9_]+)/);
+  const match = errMsg.match(/\b(E_[A-Z0-9_]+)\b/);
   if (match) {
     const code = match[1];
     return {
@@ -74,22 +76,190 @@ export function extractErrorCode(errMsg: string | undefined | null): { rawCode: 
   return { rawCode: null, humanMsg: errMsg };
 }
 
+export type TxLifecycleClient = Pick<
+  ReturnType<typeof createWriteClient>,
+  "writeContract" | "getTransaction" | "waitForTransactionReceipt" | "debugTraceTransaction"
+>;
+
+export interface TxEngineOptions {
+  pollIntervalMs?: number;
+  waitRetries?: number;
+}
+
+type ReceiptLike = GenLayerTransaction & Record<string, unknown>;
+
+const STATUS_BY_NUMBER: Record<number, TransactionStatus> = {
+  0: TransactionStatus.UNINITIALIZED,
+  1: TransactionStatus.PENDING,
+  2: TransactionStatus.PROPOSING,
+  3: TransactionStatus.COMMITTING,
+  4: TransactionStatus.REVEALING,
+  5: TransactionStatus.ACCEPTED,
+  6: TransactionStatus.UNDETERMINED,
+  7: TransactionStatus.FINALIZED,
+  8: TransactionStatus.CANCELED,
+  9: TransactionStatus.APPEAL_REVEALING,
+  10: TransactionStatus.APPEAL_COMMITTING,
+  11: TransactionStatus.READY_TO_FINALIZE,
+  12: TransactionStatus.VALIDATORS_TIMEOUT,
+  13: TransactionStatus.LEADER_TIMEOUT,
+};
+
+class ReportedTransactionError extends Error {}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getStatusName(value: unknown): string | null {
+  const tx = asRecord(value);
+  if (!tx) return null;
+
+  if (typeof tx.statusName === "string") {
+    return tx.statusName.toUpperCase();
+  }
+
+  if (typeof tx.status_name === "string") {
+    return tx.status_name.toUpperCase();
+  }
+
+  if (typeof tx.status === "string") {
+    return tx.status.toUpperCase();
+  }
+
+  if (typeof tx.status === "number") {
+    return STATUS_BY_NUMBER[tx.status] ?? `STATUS_${tx.status}`;
+  }
+
+  return null;
+}
+
+function getLeaderReceipt(receipt: ReceiptLike): Record<string, unknown> | null {
+  const consensus =
+    asRecord(receipt.consensus_data) ??
+    asRecord(receipt.consensusData);
+  const leaderReceipts = consensus?.leader_receipt ?? consensus?.leaderReceipt;
+
+  if (!Array.isArray(leaderReceipts)) return null;
+
+  const records = leaderReceipts
+    .map(asRecord)
+    .filter((entry): entry is Record<string, unknown> => entry !== null);
+
+  return records.find((entry) => entry.mode === "leader") ?? records[0] ?? null;
+}
+
+function getExecutionResultName(receipt: ReceiptLike): ExecutionResult | null {
+  if (receipt.txExecutionResultName === ExecutionResult.FINISHED_WITH_RETURN) {
+    return ExecutionResult.FINISHED_WITH_RETURN;
+  }
+
+  if (receipt.txExecutionResultName === ExecutionResult.FINISHED_WITH_ERROR) {
+    return ExecutionResult.FINISHED_WITH_ERROR;
+  }
+
+  const rawName =
+    receipt.tx_execution_result_name ??
+    receipt.executionResultName;
+  if (rawName === ExecutionResult.FINISHED_WITH_RETURN) {
+    return ExecutionResult.FINISHED_WITH_RETURN;
+  }
+  if (rawName === ExecutionResult.FINISHED_WITH_ERROR) {
+    return ExecutionResult.FINISHED_WITH_ERROR;
+  }
+
+  // Studionet currently retains the raw consensus receipt alongside the
+  // documented SDK fields. This compatibility path is deliberately closed:
+  // only an explicit SUCCESS/ERROR is accepted.
+  const leaderReceipt = getLeaderReceipt(receipt);
+  const rawExecutionResult = leaderReceipt?.execution_result ?? leaderReceipt?.executionResult;
+  if (rawExecutionResult === "SUCCESS") {
+    return ExecutionResult.FINISHED_WITH_RETURN;
+  }
+  if (rawExecutionResult === "ERROR") {
+    return ExecutionResult.FINISHED_WITH_ERROR;
+  }
+
+  return null;
+}
+
+function stringifyDiagnostic(value: unknown): string {
+  if (value instanceof Error) return value.message;
+  if (typeof value === "string") return value;
+
+  try {
+    return JSON.stringify(value, (_, item) =>
+      typeof item === "bigint" ? item.toString() : item,
+    );
+  } catch {
+    return String(value);
+  }
+}
+
+async function getFailureDiagnostic(
+  client: TxLifecycleClient,
+  hash: TransactionHash,
+  receipt: ReceiptLike,
+): Promise<string> {
+  const diagnostics = [stringifyDiagnostic(receipt)];
+
+  try {
+    const trace: DebugTraceResult = await client.debugTraceTransaction({
+      hash,
+      round: 0,
+    });
+    diagnostics.push(stringifyDiagnostic(trace));
+  } catch {
+    // The finalized receipt remains authoritative when trace retrieval fails.
+  }
+
+  return diagnostics.join("\n");
+}
+
+function isWalletRejection(error: unknown): boolean {
+  const record = asRecord(error);
+  const message = stringifyDiagnostic(error).toLowerCase();
+  return (
+    record?.code === 4001 ||
+    message.includes("user rejected") ||
+    message.includes("user denied")
+  );
+}
+
+function isTimeoutError(error: unknown): boolean {
+  const message = stringifyDiagnostic(error).toLowerCase();
+  return (
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("max retries") ||
+    message.includes("maximum retries") ||
+    message.includes("did not reach")
+  );
+}
+
 export async function executeWriteTransaction(
-  accountAddress: string,
+  client: TxLifecycleClient,
   contractAddress: string,
   functionName: string,
   args: any[] = [],
   valueWei: bigint = 0n,
-  onStatusChange: (status: TxStatusState) => void
+  onStatusChange: (status: TxStatusState) => void,
+  options: TxEngineOptions = {},
 ): Promise<string> {
   const startTime = Date.now();
   let currentTxHash: string | null = null;
+  let latestNetworkStatus: string | null = null;
+  const pollIntervalMs = options.pollIntervalMs ?? 2_000;
+  const waitRetries = options.waitRetries ?? 180;
 
   const updateState = (stage: TxStage, netStatus: string | null = null, err: string | null = null, rawCode: string | null = null) => {
+    latestNetworkStatus = netStatus ?? latestNetworkStatus;
     onStatusChange({
       stage,
       txHash: currentTxHash,
-      networkStatus: netStatus,
+      networkStatus: latestNetworkStatus,
       errorMessage: err,
       rawErrorCode: rawCode,
       elapsedSeconds: Math.floor((Date.now() - startTime) / 1000),
@@ -100,8 +270,6 @@ export async function executeWriteTransaction(
   updateState("WALLET_CONFIRM");
 
   try {
-    const client = createWriteClient(accountAddress);
-
     // Prompt wallet sign
     const hash = await client.writeContract({
       address: contractAddress as `0x${string}`,
@@ -118,69 +286,79 @@ export async function executeWriteTransaction(
     // Stage 3: CONSENSUS_PROGRESS polling
     updateState("CONSENSUS_PROGRESS", "PROPOSING");
 
-    const pollIntervalMs = 1500;
-    const maxPolls = 60;
-    let receipt: any = null;
-
-    for (let i = 0; i < maxPolls; i++) {
-      await new Promise((r) => setTimeout(r, pollIntervalMs));
-
+    const publishNetworkStatus = async () => {
       try {
-        const tx = await genlayerClient.getTransaction({ hash: hash as any });
-        if (tx) {
-          const statusStr = String(tx.status).toUpperCase();
-          updateState("CONSENSUS_PROGRESS", statusStr);
+        const transaction = await client.getTransaction({ hash });
+        const statusName = getStatusName(transaction);
+        if (statusName) {
+          updateState("CONSENSUS_PROGRESS", statusName);
         }
       } catch {
-        // Ignore poll error
+        // Receipt waiting remains authoritative; a transient status read is not.
       }
+    };
 
-      try {
-        receipt = await genlayerClient.waitForTransactionReceipt({
-          hash: hash as any,
-          status: "FINALIZED" as any,
-          interval: 1000,
-          retries: 1,
-        });
+    await publishNetworkStatus();
+    const progressTimer = setInterval(() => {
+      void publishNetworkStatus();
+    }, pollIntervalMs);
 
-        if (receipt) break;
-      } catch {
-        // Keep checking
+    let receipt: ReceiptLike;
+
+    try {
+      receipt = (await client.waitForTransactionReceipt({
+        hash,
+        status: TransactionStatus.FINALIZED,
+        interval: pollIntervalMs,
+        retries: waitRetries,
+      })) as ReceiptLike;
+    } catch (error) {
+      if (isTimeoutError(error)) {
+        const timeoutMessage =
+          "Finalization was not confirmed before the polling limit. Check the transaction in the explorer before retrying.";
+        updateState("TIMEOUT", latestNetworkStatus, timeoutMessage);
+        throw new ReportedTransactionError("TRANSACTION_TIMEOUT");
       }
+      throw error;
+    } finally {
+      clearInterval(progressTimer);
     }
 
-    if (!receipt) {
-      try {
-        receipt = await genlayerClient.waitForTransactionReceipt({
-          hash: hash as any,
-          status: "ACCEPTED" as any,
-          interval: 1000,
-          retries: 2,
-        });
-      } catch {
-        // Receipt polling finished
-      }
+    const finalStatus = getStatusName(receipt);
+    if (finalStatus !== TransactionStatus.FINALIZED) {
+      const statusMessage = `Receipt returned without FINALIZED status (received ${finalStatus ?? "unknown"}).`;
+      updateState("FINALIZED_ERROR", finalStatus, statusMessage);
+      throw new ReportedTransactionError(statusMessage);
     }
 
-    if (receipt && receipt.status === "ERROR") {
-      const { rawCode, humanMsg } = extractErrorCode(receipt.error?.message || receipt.execution_result);
+    const executionResult = getExecutionResultName(receipt);
+    if (executionResult !== ExecutionResult.FINISHED_WITH_RETURN) {
+      const diagnostic = await getFailureDiagnostic(client, hash, receipt);
+      const { rawCode, humanMsg } = extractErrorCode(
+        executionResult === ExecutionResult.FINISHED_WITH_ERROR
+          ? diagnostic
+          : `Finalized transaction did not expose a recognized execution result. ${diagnostic}`,
+      );
       updateState("FINALIZED_ERROR", "FINALIZED", humanMsg, rawCode);
-      throw new Error(humanMsg);
+      throw new ReportedTransactionError(humanMsg);
     }
 
     updateState("FINALIZED_SUCCESS", "FINALIZED");
     return hash;
 
   } catch (err: any) {
-    const errMsg = err?.message || String(err);
-
-    if (errMsg.toLowerCase().includes("user rejected") || errMsg.toLowerCase().includes("user denied") || err?.code === 4001) {
-      updateState("CANCELLED", null, "Transaction approval cancelled in wallet.");
-      throw new Error("USER_CANCELLED");
+    if (err instanceof ReportedTransactionError) {
+      throw err;
     }
 
+    if (isWalletRejection(err)) {
+      updateState("CANCELLED", null, "Transaction approval cancelled in wallet.");
+      throw new ReportedTransactionError("USER_CANCELLED");
+    }
+
+    const errMsg = stringifyDiagnostic(err);
     const { rawCode, humanMsg } = extractErrorCode(errMsg);
     updateState("FINALIZED_ERROR", null, humanMsg, rawCode);
-    throw new Error(humanMsg);
+    throw new ReportedTransactionError(humanMsg);
   }
 }

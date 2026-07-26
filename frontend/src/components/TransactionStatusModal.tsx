@@ -19,7 +19,8 @@ export const TransactionStatusModal: React.FC<TransactionStatusModalProps> = ({
   const isCancelled = status.stage === "CANCELLED";
   const isSuccess = status.stage === "FINALIZED_SUCCESS";
   const isError = status.stage === "FINALIZED_ERROR";
-  const isPending = !isCancelled && !isSuccess && !isError;
+  const isTimeout = status.stage === "TIMEOUT";
+  const isPending = !isCancelled && !isSuccess && !isError && !isTimeout;
 
   return (
     <div
@@ -51,12 +52,14 @@ export const TransactionStatusModal: React.FC<TransactionStatusModalProps> = ({
             {isSuccess && <CheckCircle2 size={22} style={{ color: "var(--accent-emerald)" }} />}
             {isError && <AlertTriangle size={22} style={{ color: "var(--accent-rose)" }} />}
             {isCancelled && <X size={22} style={{ color: "var(--text-muted)" }} />}
+            {isTimeout && <AlertTriangle size={22} style={{ color: "var(--accent-amber)" }} />}
             {isPending && <Loader2 size={22} className="spin-icon" style={{ color: "var(--accent-cyan)" }} />}
 
             <span>
               {isSuccess && "Transaction Finalized & Successful"}
               {isError && "Transaction Rejection / Error"}
               {isCancelled && "Transaction Cancelled in Wallet"}
+              {isTimeout && "Finalization Not Yet Confirmed"}
               {isPending && "GenLayer Network Adjudication"}
             </span>
           </div>
@@ -177,6 +180,22 @@ export const TransactionStatusModal: React.FC<TransactionStatusModalProps> = ({
 
         {/* Modal Actions */}
         <div style={{ marginTop: "1.5rem", display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+          {isTimeout && (
+            <div
+              style={{
+                background: "rgba(245, 158, 11, 0.08)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                borderRadius: "var(--radius-md)",
+                padding: "1rem",
+                color: "var(--text-primary)",
+                fontSize: "0.9rem",
+              }}
+            >
+              {status.errorMessage}
+              {" "}Do not submit the action again until you have checked the transaction through the explorer link above.
+            </div>
+          )}
+
           {isError && onRetry && (
             <button className="btn-retry" onClick={onRetry} type="button">
               <RefreshCw size={16} />
