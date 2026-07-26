@@ -25,6 +25,31 @@ Verification rule: every transaction must show Status `FINALIZED` **and** Result
 
 Gotcha (Studio UI): the write-method **Value** field accepts integers only and denominates in whole GEN (`1` → 10^18 wei). Decimals like `0.1` throw "cannot be converted to a BigInt". Stale contract entries from other sessions produce harmless `gen_getContractSchema ... not found` log errors — ignore any error naming an address that is not one of ours.
 
+## Dev instance v2 — Treasury redeployment (2026-07-27)
+
+Treasury v1 rendered evidence with `mode="html"`, so the 6000-char window carried only head-HTML and every request was denied under article 3 (two authentic denials recorded on v1 — the strictness working as designed against bad evidence). SPEC §4.4 specifies text mode; hotfix commit `a471c5e` restored conformance and Treasury was redeployed by the user via Studio. Charter is unchanged.
+
+| Item | Value |
+| --- | --- |
+| Treasury v2 | `0x99A0b62199b412421c6466E1C60e0C0D220D2F16` |
+| Constructor | `charter_address=0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`, `appeal_window_seconds=300`, `member_cooldown_seconds=60` |
+| Funding | `fund()` 1 GEN from member B — tx `0x6272abd697da8d4c48b1b29a19e2ba9a2de63719a7f488c746187d8ea1437853` |
+
+### Integration journey (2026-07-27, members A=deployer, B/C=scripted wallets, all tx FINALIZED+SUCCESS)
+
+| Event | Outcome | Tx |
+| --- | --- | --- |
+| Members B, C added via amendments 1–2 (A via Studio; B voted/finalized by script) | 3 members, charter v3 | vote `0xd559...ee28`, finalize `0xb0c0...dae0` |
+| Req #1 (B): PyCon ticket 0.02 GEN, evidence = registration price page | **APPROVE** — AI read "$469 USD Individual" from the page, cited art. 1 | submit `0xe4ad...c971`, adjudicate `0x16ad...aabc` |
+| Req #2 (C): keyboard 0.04 GEN, Keychron product page | **DENY** (art. 3 — no price in fetched text) | submit `0x266c...f488`, adjudicate `0x4476...b4a7` |
+| Req #2 appeal (C) | **DENY upheld** → FINAL_RULED (precedent #3, is_appeal) | appeal `0xc635...64ef`, adjudicate `0x580e...6be1` |
+| Payouts | #1 PAID 0.02 GEN → B (`0x3f09...24e8`); #2 CLOSED (`0x617c...90ba`) | |
+| Req #3 (B): team dinner 0.02 GEN | **DENY** (art. 4 v1: food not reimbursable) → CLOSED `0xe100...ea86` | submit `0x6de4...da91`, adjudicate `0x244e...8ddb` |
+| Amendment 3: REPLACE art. 4 (B proposes, B+C vote, finalize) | **RATIFIED** — charter v4, food allowed ≤0.03 GEN for documented team events | `0x3e31...4d6f`, `0x8cee...b22b`, `0x4d6d...53cf`, `0xd46e...5cc9` |
+| Req #4 (C): team dinner 0.05 GEN after amendment | **PARTIAL 0.03 GEN** — cited art. 4 **v2**, cap applied → PAID `0xf8fd...6120` | submit `0xda7c...4124`, adjudicate `0xd7af...9175` |
+
+Final state: balance 0.95 GEN; 4 requests all terminal (PAID/CLOSED/CLOSED/PAID); 5 precedents; the same request type denied under charter v3 (precedent #4) is partially approved under v4 (precedent #5) — the living-charter loop demonstrated on-chain.
+
 ## Final submission instance
 
-_Not deployed yet — Phase 6. Never put placeholder addresses in `.env`._
+_Recommendation: adopt Charter + Treasury v2 above as the submission deployment — they already carry genuine multi-wallet activity. Decision at Phase 6. Never put placeholder addresses in `.env`._
