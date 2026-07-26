@@ -7,6 +7,10 @@ export const genlayerClient = createClient({
   endpoint: "https://studio.genlayer.com/api",
 });
 
+type ContractReadArgs = NonNullable<
+  Parameters<typeof genlayerClient.readContract>[0]["args"]
+>;
+
 const WEI_FIELDS = new Set([
   "amount_wei",
   "approved_amount_wei",
@@ -15,7 +19,7 @@ const WEI_FIELDS = new Set([
   "balance_wei",
 ]);
 
-function parseContractJson(rawResult: string): unknown {
+export function parseContractJson(rawResult: string): unknown {
   return parse(rawResult, (key, value) => {
     if (WEI_FIELDS.has(key)) {
       if (isLosslessNumber(value)) {
@@ -41,7 +45,11 @@ function parseContractJson(rawResult: string): unknown {
   });
 }
 
-export async function readContractJson<T>(address: string, functionName: string, args: any[] = []): Promise<T> {
+export async function readContractJson(
+  address: string,
+  functionName: string,
+  args: ContractReadArgs = [],
+): Promise<unknown> {
   const rawResult = await genlayerClient.readContract({
     address: address as `0x${string}`,
     functionName,
@@ -49,8 +57,8 @@ export async function readContractJson<T>(address: string, functionName: string,
   });
 
   if (typeof rawResult === "string") {
-    return parseContractJson(rawResult) as T;
+    return parseContractJson(rawResult);
   }
 
-  return rawResult as T;
+  return rawResult;
 }

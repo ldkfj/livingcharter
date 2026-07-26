@@ -39,6 +39,7 @@ class UserData:
 - **Vite:** `v6.4.3`
 - **TypeScript:** `v5.9.3`
 - **lossless-json:** `v4.3.0`
+- **Vitest:** `v4.1.10`
 
 ## Verification Metadata
 - **Source URLs:**

@@ -4,13 +4,18 @@ export interface CharterArticle {
   text: string;
 }
 
+export interface CharterArticleInfo extends CharterArticle {
+  status: number;
+  updated_by_amendment: number;
+  updated_at: number;
+}
+
 export interface CharterBundle {
   charter_version: number;
   articles: CharterArticle[];
 }
 
 export interface CharterMember {
-  address: string;
   active: boolean;
   joined_at?: number;
 }
