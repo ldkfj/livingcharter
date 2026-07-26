@@ -1,12 +1,14 @@
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from __future__ import annotations
+from dataclasses import dataclass
 from genlayer import *
 import json
 
 """Charter Intelligent Contract — Deterministic natural-language charter governance.
 
 Storage Approach:
-    Dict-like record entries stored inside TreeMap collections.
+    Storage-compatible dataclasses (@allow_storage @dataclass) stored inside TreeMap collections.
+    Flat voter tracking map (amendment_votes: TreeMap[str, bool]) keyed by f"{amendment_id}:{voter_hex}".
 
 Constants:
     Article status:
@@ -74,14 +76,50 @@ AMENDMENT_CANCELLED = 5
 STATE_NAMES = ["PROPOSED", "VOTING", "RATIFIED", "REJECTED", "EXPIRED", "CANCELLED"]
 
 
+@allow_storage
+@dataclass
+class MemberRec:
+    active: bool
+    joined_at: u64
+
+
+@allow_storage
+@dataclass
+class ArticleRec:
+    id: u32
+    text: str
+    status: u8
+    version: u32
+    updated_by_amendment: u32
+    updated_at: u64
+
+
+@allow_storage
+@dataclass
+class AmendmentRec:
+    id: u32
+    kind: u8
+    target_article_id: u32
+    new_text: str
+    target_member: str
+    proposer: Address
+    rationale: str
+    state: u8
+    yes: u32
+    no: u32
+    deadline: u64
+    created_at: u64
+
+
 class Charter(gl.Contract):
-    members: TreeMap[Address, dict]
+    members: TreeMap[Address, MemberRec]
     member_count: u32
-    articles: TreeMap[u32, dict]
+    articles: TreeMap[u32, ArticleRec]
     article_count: u32
     charter_version: u32
-    amendments: TreeMap[u32, dict]
+    amendments: TreeMap[u32, AmendmentRec]
     amendment_count: u32
+    amendment_votes: TreeMap[str, bool]
     voting_period_seconds: u64
     deployer: Address
     bootstrapped: bool
@@ -125,19 +163,19 @@ class Charter(gl.Contract):
 
         now = self._now()
         self.bootstrapped = True
-        self.members[self.deployer] = {"active": True, "joined_at": now}
+        self.members[self.deployer] = MemberRec(active=True, joined_at=now)
         self.member_count = 1
 
         for art_text in articles:
             self.article_count += 1
-            self.articles[self.article_count] = {
-                "id": self.article_count,
-                "text": art_text,
-                "status": ARTICLE_ACTIVE,
-                "version": 1,
-                "updated_by_amendment": 0,
-                "updated_at": now,
-            }
+            self.articles[self.article_count] = ArticleRec(
+                id=self.article_count,
+                text=art_text,
+                status=ARTICLE_ACTIVE,
+                version=1,
+                updated_by_amendment=0,
+                updated_at=now,
+            )
 
         self.charter_version = 1
 
@@ -154,7 +192,7 @@ class Charter(gl.Contract):
             raise Exception("E_NOT_BOOTSTRAPPED")
 
         caller = gl.message.sender_address
-        if caller not in self.members or not self.members[caller].get("active", False):
+        if caller not in self.members or not self.members[caller].active:
             raise Exception("E_NOT_MEMBER")
 
         if len(rationale) > 500:
@@ -167,7 +205,7 @@ class Charter(gl.Contract):
         if kind in (KIND_REPLACE_ARTICLE, KIND_REPEAL_ARTICLE):
             if (
                 target_article_id not in self.articles
-                or self.articles[target_article_id]["status"] != ARTICLE_ACTIVE
+                or self.articles[target_article_id].status != ARTICLE_ACTIVE
             ):
                 raise Exception("E_INVALID_ARTICLE_TARGET")
 
@@ -179,11 +217,11 @@ class Charter(gl.Contract):
                 raise Exception("E_INVALID_MEMBER_ADDRESS")
 
             if kind == KIND_ADD_MEMBER:
-                if target_addr in self.members and self.members[target_addr].get("active", False):
+                if target_addr in self.members and self.members[target_addr].active:
                     raise Exception("E_MEMBER_ALREADY_ACTIVE")
 
             if kind == KIND_REMOVE_MEMBER:
-                if target_addr not in self.members or not self.members[target_addr].get("active", False):
+                if target_addr not in self.members or not self.members[target_addr].active:
                     raise Exception("E_MEMBER_NOT_ACTIVE")
                 if self.member_count <= 1:
                     raise Exception("E_LAST_MEMBER")
@@ -202,21 +240,20 @@ class Charter(gl.Contract):
         self.amendment_count += 1
         aid = self.amendment_count
 
-        self.amendments[aid] = {
-            "id": aid,
-            "kind": kind,
-            "target_article_id": target_article_id,
-            "new_text": new_text,
-            "target_member": target_addr.as_hex if target_addr else "",
-            "proposer": caller,
-            "rationale": rationale,
-            "state": AMENDMENT_PROPOSED,
-            "yes": 0,
-            "no": 0,
-            "voted": {},
-            "deadline": deadline,
-            "created_at": now,
-        }
+        self.amendments[aid] = AmendmentRec(
+            id=aid,
+            kind=kind,
+            target_article_id=target_article_id,
+            new_text=new_text,
+            target_member=target_addr.as_hex if target_addr else "",
+            proposer=caller,
+            rationale=rationale,
+            state=AMENDMENT_PROPOSED,
+            yes=0,
+            no=0,
+            deadline=deadline,
+            created_at=now,
+        )
         return aid
 
     @gl.public.write
@@ -225,32 +262,32 @@ class Charter(gl.Contract):
             raise Exception("E_NOT_BOOTSTRAPPED")
 
         caller = gl.message.sender_address
-        if caller not in self.members or not self.members[caller].get("active", False):
+        if caller not in self.members or not self.members[caller].active:
             raise Exception("E_NOT_MEMBER")
 
         if amendment_id not in self.amendments:
             raise Exception("E_AMENDMENT_NOT_FOUND")
 
         amd = self.amendments[amendment_id]
-        if amd["state"] not in (AMENDMENT_PROPOSED, AMENDMENT_VOTING):
+        if amd.state not in (AMENDMENT_PROPOSED, AMENDMENT_VOTING):
             raise Exception("E_AMENDMENT_NOT_OPEN")
 
         now = self._now()
-        if now >= amd["deadline"]:
+        if now >= amd.deadline:
             raise Exception("E_VOTING_CLOSED")
 
-        caller_hex = caller.as_hex
-        if caller_hex in amd["voted"]:
+        vote_key = f"{amendment_id}:{caller.as_hex}"
+        if vote_key in self.amendment_votes:
             raise Exception("E_ALREADY_VOTED")
 
-        if amd["state"] == AMENDMENT_PROPOSED:
-            amd["state"] = AMENDMENT_VOTING
+        if amd.state == AMENDMENT_PROPOSED:
+            amd.state = AMENDMENT_VOTING
 
-        amd["voted"][caller_hex] = support
+        self.amendment_votes[vote_key] = support
         if support:
-            amd["yes"] += 1
+            amd.yes += 1
         else:
-            amd["no"] += 1
+            amd.no += 1
 
     @gl.public.write
     def finalize_amendment(self, amendment_id: int):
@@ -261,7 +298,7 @@ class Charter(gl.Contract):
             raise Exception("E_AMENDMENT_NOT_FOUND")
 
         amd = self.amendments[amendment_id]
-        state = amd["state"]
+        state = amd.state
 
         if state in (
             AMENDMENT_RATIFIED,
@@ -272,8 +309,8 @@ class Charter(gl.Contract):
             raise Exception("E_ALREADY_FINALIZED")
 
         now = self._now()
-        deadline_passed = now >= amd["deadline"]
-        strict_majority = amd["yes"] > (self.member_count // 2)
+        deadline_passed = now >= amd.deadline
+        strict_majority = amd.yes > (self.member_count // 2)
 
         if state == AMENDMENT_PROPOSED:
             if not deadline_passed:
@@ -282,54 +319,53 @@ class Charter(gl.Contract):
             if not (deadline_passed or strict_majority):
                 raise Exception("E_CANNOT_FINALIZE")
 
-        total_votes = amd["yes"] + amd["no"]
+        total_votes = amd.yes + amd.no
         if total_votes == 0 and deadline_passed:
-            amd["state"] = AMENDMENT_EXPIRED
+            amd.state = AMENDMENT_EXPIRED
             return
 
-        if amd["yes"] > amd["no"]:
-            amd["state"] = AMENDMENT_RATIFIED
-            kind = amd["kind"]
+        if amd.yes > amd.no:
+            amd.state = AMENDMENT_RATIFIED
+            kind = amd.kind
 
             if kind == KIND_ADD_ARTICLE:
                 self.article_count += 1
-                self.articles[self.article_count] = {
-                    "id": self.article_count,
-                    "text": amd["new_text"],
-                    "status": ARTICLE_ACTIVE,
-                    "version": 1,
-                    "updated_by_amendment": amendment_id,
-                    "updated_at": now,
-                }
+                self.articles[self.article_count] = ArticleRec(
+                    id=self.article_count,
+                    text=amd.new_text,
+                    status=ARTICLE_ACTIVE,
+                    version=1,
+                    updated_by_amendment=amendment_id,
+                    updated_at=now,
+                )
             elif kind == KIND_REPLACE_ARTICLE:
-                art = self.articles[amd["target_article_id"]]
-                art["status"] = ARTICLE_SUPERSEDED
-                # Store new text under same article id with version + 1 per SPEC 3.2
-                self.articles[amd["target_article_id"]] = {
-                    "id": amd["target_article_id"],
-                    "text": amd["new_text"],
-                    "status": ARTICLE_ACTIVE,
-                    "version": art["version"] + 1,
-                    "updated_by_amendment": amendment_id,
-                    "updated_at": now,
-                }
+                art = self.articles[amd.target_article_id]
+                art.status = ARTICLE_SUPERSEDED
+                self.articles[amd.target_article_id] = ArticleRec(
+                    id=amd.target_article_id,
+                    text=amd.new_text,
+                    status=ARTICLE_ACTIVE,
+                    version=art.version + 1,
+                    updated_by_amendment=amendment_id,
+                    updated_at=now,
+                )
             elif kind == KIND_REPEAL_ARTICLE:
-                art = self.articles[amd["target_article_id"]]
-                art["status"] = ARTICLE_REPEALED
-                art["updated_by_amendment"] = amendment_id
-                art["updated_at"] = now
+                art = self.articles[amd.target_article_id]
+                art.status = ARTICLE_REPEALED
+                art.updated_by_amendment = amendment_id
+                art.updated_at = now
             elif kind == KIND_ADD_MEMBER:
-                t_addr = Address(amd["target_member"])
-                self.members[t_addr] = {"active": True, "joined_at": now}
+                t_addr = Address(amd.target_member)
+                self.members[t_addr] = MemberRec(active=True, joined_at=now)
                 self.member_count += 1
             elif kind == KIND_REMOVE_MEMBER:
-                t_addr = Address(amd["target_member"])
-                self.members[t_addr]["active"] = False
+                t_addr = Address(amd.target_member)
+                self.members[t_addr].active = False
                 self.member_count -= 1
 
             self.charter_version += 1
         else:
-            amd["state"] = AMENDMENT_REJECTED
+            amd.state = AMENDMENT_REJECTED
 
     @gl.public.write
     def cancel_amendment(self, amendment_id: int):
@@ -342,23 +378,22 @@ class Charter(gl.Contract):
         amd = self.amendments[amendment_id]
         caller = gl.message.sender_address
 
-        if caller != amd["proposer"]:
+        if caller != amd.proposer:
             raise Exception("E_NOT_PROPOSER")
 
-        if amd["state"] != AMENDMENT_PROPOSED or len(amd["voted"]) > 0:
+        if amd.state != AMENDMENT_PROPOSED or (amd.yes + amd.no > 0):
             raise Exception("E_CANNOT_CANCEL")
 
-        amd["state"] = AMENDMENT_CANCELLED
+        amd.state = AMENDMENT_CANCELLED
 
     @gl.public.view
     def get_charter_bundle(self) -> str:
         active_articles = []
-        # Sorted by article id
         for aid in sorted(self.articles.keys()):
             art = self.articles[aid]
-            if art["status"] == ARTICLE_ACTIVE:
+            if art.status == ARTICLE_ACTIVE:
                 active_articles.append(
-                    {"id": art["id"], "version": art["version"], "text": art["text"]}
+                    {"id": art.id, "version": art.version, "text": art.text}
                 )
 
         bundle = {
@@ -373,17 +408,37 @@ class Charter(gl.Contract):
             raise Exception("E_INVALID_ARTICLE_TARGET")
 
         art = self.articles[article_id]
-        return json.dumps(art)
+        return json.dumps({
+            "id": art.id,
+            "text": art.text,
+            "status": art.status,
+            "version": art.version,
+            "updated_by_amendment": art.updated_by_amendment,
+            "updated_at": art.updated_at,
+        })
 
     @gl.public.view
     def get_amendment(self, amendment_id: int) -> str:
         if amendment_id not in self.amendments:
             raise Exception("E_AMENDMENT_NOT_FOUND")
 
-        amd = dict(self.amendments[amendment_id])
-        amd["proposer"] = amd["proposer"].as_hex if hasattr(amd["proposer"], "as_hex") else str(amd["proposer"])
-        amd["state_name"] = STATE_NAMES[amd["state"]]
-        return json.dumps(amd)
+        amd = self.amendments[amendment_id]
+        proposer_hex = amd.proposer.as_hex if hasattr(amd.proposer, "as_hex") else str(amd.proposer)
+        return json.dumps({
+            "id": amd.id,
+            "kind": amd.kind,
+            "target_article_id": amd.target_article_id,
+            "new_text": amd.new_text,
+            "target_member": amd.target_member,
+            "proposer": proposer_hex,
+            "rationale": amd.rationale,
+            "state": amd.state,
+            "state_name": STATE_NAMES[amd.state],
+            "yes": amd.yes,
+            "no": amd.no,
+            "deadline": amd.deadline,
+            "created_at": amd.created_at,
+        })
 
     @gl.public.view
     def get_member(self, addr: str) -> str:
@@ -394,15 +449,15 @@ class Charter(gl.Contract):
 
         if m_addr in self.members:
             m_rec = self.members[m_addr]
-            if m_rec.get("active", False):
-                return json.dumps({"active": True, "joined_at": m_rec.get("joined_at", 0)})
+            if m_rec.active:
+                return json.dumps({"active": True, "joined_at": m_rec.joined_at})
 
         return json.dumps({"active": False})
 
     @gl.public.view
     def get_counts(self) -> str:
         active_articles = sum(
-            1 for art in self.articles.values() if art["status"] == ARTICLE_ACTIVE
+            1 for art in self.articles.values() if art.status == ARTICLE_ACTIVE
         )
         counts = {
             "members": self.member_count,
