@@ -91,7 +91,7 @@ export function useAmendments(charterAddress: string, pollIntervalMs = 15000) {
     try {
       setError(null);
       const counts = await contractService.getCharterCounts(charterAddress);
-      const count = counts.amendment_count;
+      const count = counts.amendments;
       if (count === 0) {
         setAmendments([]);
         setLoading(false);

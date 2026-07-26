@@ -165,7 +165,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <BookOpen size={24} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{charterCounts.article_count}</div>
+            <div className="stat-value">{charterCounts.articles}</div>
             <div className="stat-label">Active Articles</div>
           </div>
         </div>
@@ -175,7 +175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Users size={24} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{charterCounts.member_count}</div>
+            <div className="stat-value">{charterCounts.members}</div>
             <div className="stat-label">Active Members</div>
           </div>
         </div>
@@ -205,7 +205,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <Vote size={24} />
           </div>
           <div className="stat-info">
-            <div className="stat-value">{charterCounts.amendment_count}</div>
+            <div className="stat-value">{charterCounts.amendments}</div>
             <div className="stat-label">Amendments</div>
           </div>
         </div>

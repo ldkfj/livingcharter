@@ -29,7 +29,24 @@ export const contractService = {
   },
 
   async getCharterCounts(charterAddress: string): Promise<CharterCounts> {
-    return readContractJson<CharterCounts>(charterAddress, "get_counts");
+    const raw = await readContractJson<any>(charterAddress, "get_counts");
+    if (
+      !raw ||
+      typeof raw.members !== "number" ||
+      typeof raw.articles !== "number" ||
+      typeof raw.amendments !== "number" ||
+      typeof raw.charter_version !== "number"
+    ) {
+      throw new Error(
+        "Data-shape error: get_counts returned invalid or missing count fields (expected members, articles, amendments, charter_version as numbers)."
+      );
+    }
+    return {
+      members: raw.members,
+      articles: raw.articles,
+      amendments: raw.amendments,
+      charter_version: raw.charter_version,
+    };
   },
 
   // Treasury View Calls

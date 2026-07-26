@@ -16,10 +16,10 @@ export interface CharterMember {
 }
 
 export interface CharterCounts {
-  member_count: number;
-  article_count: number;
+  members: number;
+  articles: number;
+  amendments: number;
   charter_version: number;
-  amendment_count: number;
 }
 
 export interface RulingInfo {
