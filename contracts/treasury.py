@@ -142,6 +142,40 @@ class PrecedentRec:
     is_appeal: bool
 
 
+def _validate_payload(p: dict, requested_wei: int, active_ids: set) -> bool:
+    """Validate the exact ruling schema and settlement-critical payload fields."""
+    required_keys = {"decision", "approved_amount_wei", "cited_article_ids", "reason"}
+    raw_keys = p.get("raw_keys")
+    if not isinstance(raw_keys, list) or set(raw_keys) != required_keys:
+        return False
+
+    decision = p.get("decision")
+    amount = p.get("amount")
+    cited = p.get("cited")
+    reason = p.get("reason")
+
+    if decision not in ("APPROVE", "PARTIAL", "DENY"):
+        return False
+    if type(amount) is not int:
+        return False
+    if not isinstance(cited, list) or len(cited) == 0:
+        return False
+    if any(type(cid) is not int for cid in cited):
+        return False
+    if len(set(cited)) != len(cited):
+        return False
+    if any(cid not in active_ids for cid in cited):
+        return False
+    if not isinstance(reason, str) or not (1 <= len(reason) <= 500):
+        return False
+
+    if decision == "APPROVE":
+        return amount == requested_wei
+    if decision == "DENY":
+        return amount == 0
+    return 0 < amount < requested_wei
+
+
 def _evaluate_request(
     urls: list[str],
     active_articles: list[dict],
@@ -245,6 +279,8 @@ Purpose: <UNTRUSTED_PURPOSE>{purpose}</UNTRUSTED_PURPOSE>
     try:
         resp = gl.nondet.exec_prompt(prompt, response_format="json")
         if isinstance(resp, str):
+            if len(resp) > 20000:
+                return {"ok": False, "err": "OversizeResponse"}
             clean_text = resp.strip()
             if clean_text.startswith("```"):
                 lines = clean_text.splitlines()
@@ -259,10 +295,16 @@ Purpose: <UNTRUSTED_PURPOSE>{purpose}</UNTRUSTED_PURPOSE>
         else:
             return {"ok": False, "err": "InvalidType"}
 
-        dec_str = str(parsed.get("decision", "")).strip().upper()
+        dec_raw = parsed.get("decision", "")
+        if not isinstance(dec_raw, str):
+            return {"ok": False, "err": "InvalidDecision"}
+        dec_str = dec_raw.strip().upper()
         amt_raw = parsed.get("approved_amount_wei", "0")
         cited_raw = parsed.get("cited_article_ids", [])
-        reason_raw = str(parsed.get("reason", "")).strip()
+        reason_raw = parsed.get("reason", "")
+        if not isinstance(reason_raw, str):
+            return {"ok": False, "err": "InvalidReason"}
+        reason_raw = reason_raw.strip()
 
         if dec_str not in ("APPROVE", "PARTIAL", "DENY"):
             return {"ok": False, "err": "InvalidDecision"}
@@ -277,10 +319,9 @@ Purpose: <UNTRUSTED_PURPOSE>{purpose}</UNTRUSTED_PURPOSE>
 
         cited = []
         for c in cited_raw:
-            try:
-                cited.append(int(c))
-            except Exception:
+            if type(c) is not int:
                 return {"ok": False, "err": "InvalidCited"}
+            cited.append(c)
 
         return {
             "ok": True,
@@ -593,36 +634,13 @@ class Treasury(gl.Contract):
             if not val_val.get("ok", False):
                 return False
 
-            dec = leader_val.get("decision")
-            amt = leader_val.get("amount")
-            cited = leader_val.get("cited")
-            reason = leader_val.get("reason")
-            raw_keys = leader_val.get("raw_keys", [])
-
-            if dec not in ("APPROVE", "PARTIAL", "DENY"):
+            if not _validate_payload(leader_val, requested_wei, active_article_ids):
                 return False
-            if not isinstance(amt, int):
-                return False
-            if not isinstance(cited, list):
-                return False
-            if not (1 <= len(reason) <= 500):
+            if not _validate_payload(val_val, requested_wei, active_article_ids):
                 return False
 
-            allowed_schema_keys = {"decision", "approved_amount_wei", "cited_article_ids", "reason"}
-            if not set(raw_keys).issubset(allowed_schema_keys):
-                return False
-
-            for cid in cited:
-                if cid not in active_article_ids:
-                    return False
-
-            if dec == "APPROVE" and amt != requested_wei:
-                return False
-            if dec == "DENY" and amt != 0:
-                return False
-            if dec == "PARTIAL" and not (0 < amt < requested_wei):
-                return False
-
+            dec = leader_val["decision"]
+            amt = leader_val["amount"]
             if dec != val_val.get("decision"):
                 return False
 
