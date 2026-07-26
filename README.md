@@ -92,4 +92,4 @@ The app refuses to start if either address is missing or looks like a placeholde
 
 ## Roadmap (not yet implemented)
 
-Weighted or quorum-configurable voting; richer precedent retrieval (relevance-based selection beyond the most recent window); multi-treasury federation.
+Near term: charter-amendable process parameters, cross-source evidence corroboration, precedent browsing by article, public-testnet deployment. Mid term: relevance-based precedent retrieval, configurable voting. Long term: multi-treasury federation, reusable charter templates, adjudication as a module for other contracts. Details: [docs/ROADMAP.md](docs/ROADMAP.md).
