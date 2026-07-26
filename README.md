@@ -40,7 +40,7 @@ React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go throug
 contracts/   charter.py, treasury.py (GenVM Intelligent Contracts, Python)
 frontend/    React DApp (read + write, wallet, tx lifecycle)
 tests/       49 pytest unit tests over a pure-Python GenVM stub
-docs/        SPEC.md, DEPLOYMENTS.md (full tx audit trail), VERSIONS.md (verified API surface)
+docs/        DEPLOYMENTS.md (full tx audit trail), VERSIONS.md (verified API surface), SUBMISSION.md, REVIEWER-GUIDE.md
 scripts/     lint.ps1 (genvm-lint gate)
 ```
 

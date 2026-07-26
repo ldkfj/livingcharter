@@ -87,6 +87,7 @@ Charter + Treasury v2 above ARE the submission deployment (user-approved) — th
 | Public repository | https://github.com/ldkfj/livingcharter (branch `master`) |
 | Live application | https://livingcharter.vercel.app (Vercel project `livingcharter`, framework Vite, output `dist`) |
 | Production env | `VITE_CHARTER_ADDRESS`, `VITE_TREASURY_ADDRESS` set to the addresses above (public values, not secrets) |
-| Push/deploy executed by | GPT/Codex under an explicit per-task user override of the standing no-push rule; verified by Claude (repo content, 58-commit HEAD `8e54332`, live HTTP 200 + correct Studionet reads) |
+| Push/deploy executed by | GPT/Codex under an explicit per-task user override of the standing no-push rule; verified by Claude (repo content, live HTTP 200 + correct Studionet reads) |
+| Production frontend build | Deployed from commit `8e54332`; documentation commits continue on `master` after that build |
 
 Note: `.secrets/` (testnet bot keys) and `frontend/.env` are gitignored and verified absent from the published history.
