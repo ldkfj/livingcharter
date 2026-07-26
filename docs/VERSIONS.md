@@ -1,7 +1,8 @@
 # Verified GenVM Header and Dependency Values
 
 ## Verified Header and Depends Values
-- **Exact Contract First-Line Version Comment:** `# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }`
+- **Opening Comment Line Finding:** Official GenLayer documentation examples (`first-contract` and `introduction`) do not show a separate `# vX.Y.Z` version comment line. The contract's required opening line shown in official examples is verbatim:
+  `# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }`
 - **Exact Depends Line Verbatim:** `# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }`
 
 ## Storage Record Pattern
