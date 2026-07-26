@@ -37,18 +37,50 @@ React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go throug
 ## Repository layout
 
 ```
-contracts/   charter.py, treasury.py (GenVM Intelligent Contracts, Python)
-frontend/    React DApp (read + write, wallet, tx lifecycle)
+contracts/   charter.py, treasury.py — GenVM Intelligent Contracts (Python)
+frontend/    React DApp: read + write, wallet, truthful tx lifecycle
+  scripts/integration/   the scripted multi-wallet journeys recorded in docs/DEPLOYMENTS.md
 tests/       49 pytest unit tests over a pure-Python GenVM stub
-docs/        DEPLOYMENTS.md (full tx audit trail), VERSIONS.md (verified API surface), SUBMISSION.md, REVIEWER-GUIDE.md
-scripts/     lint.ps1 (genvm-lint gate)
+docs/        DEPLOYMENTS.md (full tx audit trail) · VERSIONS.md (verified API surface) · SUBMISSION.md · REVIEWER-GUIDE.md
+scripts/     lint.ps1 — genvm-lint gate (must pass before any deployment)
 ```
 
-## Running locally
+## Setup
 
-Contracts (tests): `python -m pytest -v` — 49 tests, no GenLayer runtime required (stubbed).
-Lint gate (before any deployment): `powershell -ExecutionPolicy Bypass -File scripts/lint.ps1`.
-Frontend: `cd frontend && npm ci && npm run dev` — requires `.env` with the real deployed addresses (see `.env.example`; the app refuses to start on missing or placeholder values). Frontend tests: `npx vitest run` (81 tests); build: `npm run build`.
+**1. Contract tests** (no GenLayer runtime needed — the GenVM surface is stubbed):
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest -v        # 49 tests
+```
+
+**2. Lint gate** (required before any deployment):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/lint.ps1
+```
+
+**3. Frontend** against the live deployed contracts:
+
+```bash
+cd frontend
+npm ci
+copy .env.example .env     # then fill in the two deployed addresses (README table above)
+npm run dev                # local app
+npx vitest run             # 81 tests
+npm run build              # production build
+```
+
+The app refuses to start if either address is missing or looks like a placeholder.
+
+## Deploying your own instance
+
+1. Run the lint gate (above) — both contracts must pass.
+2. In [GenLayer Studio](https://studio.genlayer.com), deploy `contracts/charter.py` with `voting_period_seconds` (e.g. `300`). Require the transaction to be **FINALIZED with result SUCCESS** — both, always.
+3. From the deployer account, call `bootstrap(articles_json)` with a JSON array of 2–10 founding articles (each 20–2000 chars). Verify with `get_charter_bundle`.
+4. Deploy `contracts/treasury.py` with `charter_address` (step 2's address), `appeal_window_seconds`, `member_cooldown_seconds`. Verify with `get_treasury_state`.
+5. Fund it: call payable `fund` with a GEN value, then put both addresses in `frontend/.env`.
+6. Add members via `propose_amendment` (kind `3` = ADD_MEMBER) → `vote` → `finalize_amendment`.
 
 ## Security posture and honest limitations
 
