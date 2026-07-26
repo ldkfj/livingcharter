@@ -48,7 +48,6 @@ Error Codes:
     E_INSUFFICIENT_BALANCE — Contract balance is insufficient for payout
 """
 
-from __future__ import annotations
 from dataclasses import dataclass
 from genlayer import *
 import json

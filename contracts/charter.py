@@ -56,7 +56,6 @@ Error Codes:
     E_CANNOT_CANCEL — Amendment cannot be cancelled after voting has started
 """
 
-from __future__ import annotations
 from dataclasses import dataclass
 from genlayer import *
 import json
