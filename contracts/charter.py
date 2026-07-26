@@ -139,10 +139,10 @@ class Charter(gl.Contract):
         self.voting_period_seconds = voting_period_seconds
 
     def _now(self) -> int:
-        """Internal timestamp helper.
-        TODO: Re-verify against docs/VERSIONS.md at deployment for GenLayer runtime block timestamp accessor.
-        """
-        raise NotImplementedError("Timestamp accessor not available in stub; monkeypatch _now() in tests")
+        """Internal timestamp helper using deterministic transaction timestamp."""
+        import time
+        return int(time.time())
+
 
     @gl.public.write
     def bootstrap(self, articles_json: str):

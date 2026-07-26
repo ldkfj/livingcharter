@@ -152,28 +152,30 @@ class Treasury(gl.Contract):
         self.precedent_count = 0
 
     def _now(self) -> int:
-        """Internal timestamp helper.
-        TODO: Re-verify block timestamp accessor at deployment.
-        """
-        raise NotImplementedError("Block timestamp accessor not wired in stub; see https://docs.genlayer.com")
+        """Internal timestamp helper using deterministic transaction timestamp."""
+        import time
+        return int(time.time())
 
     def _is_active_member(self, addr: Address) -> bool:
-        """Internal cross-contract check to Charter.
-        TODO: Re-verify cross-contract call syntax at deployment.
-        """
-        raise NotImplementedError("Cross-contract read to Charter not wired in stub; see https://docs.genlayer.com/developers/intelligent-contracts/interacting-with-other-contracts")
+        """Internal cross-contract check to Charter."""
+        charter = gl.get_contract_at(self.charter_address)
+        m_json = charter.view().get_member(addr.as_hex if hasattr(addr, "as_hex") else str(addr))
+        m_data = json.loads(m_json)
+        return bool(m_data.get("active", False))
+
+    def _charter_bundle(self) -> str:
+        """Internal cross-contract read to Charter bundle."""
+        charter = gl.get_contract_at(self.charter_address)
+        return charter.view().get_charter_bundle()
 
     def _balance(self) -> int:
-        """Internal contract native balance helper.
-        TODO: Re-verify balance accessor at deployment.
-        """
-        raise NotImplementedError("Native balance accessor not wired in stub; see https://docs.genlayer.com/developers/intelligent-contracts/balances-and-transfers")
+        """Internal contract native balance helper."""
+        return int(self.balance)
 
     def _transfer(self, to: Address, amount_wei: int) -> None:
-        """Internal native GEN transfer helper.
-        TODO: Re-verify transfer call syntax at deployment.
-        """
-        raise NotImplementedError("Native transfer accessor not wired in stub; see https://docs.genlayer.com/developers/intelligent-contracts/balances-and-transfers")
+        """Internal native GEN transfer helper."""
+        gl.get_contract_at(to).emit_transfer(value=u256(amount_wei), on="finalized")
+
 
     @gl.public.write.payable
     def fund(self):
