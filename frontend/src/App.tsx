@@ -79,6 +79,7 @@ export const App: React.FC = () => {
             hasMore={precedentsState.hasMore}
             onLoadMore={precedentsState.loadMore}
             loading={precedentsState.loading}
+            loadingMore={precedentsState.loadingMore}
             error={precedentsState.error}
             onRetry={precedentsState.refetch}
             onSelectArticleAnchor={handleSelectArticleAnchor}

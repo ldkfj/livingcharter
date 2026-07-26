@@ -8,6 +8,7 @@ import {
   PrecedentInfo,
   AmendmentInfo,
 } from "../types/contract";
+import { mergePrecedentPages } from "../lib/precedents";
 
 export interface DashboardData {
   charterBundle: CharterBundle;
@@ -123,9 +124,9 @@ export function useAmendments(charterAddress: string, pollIntervalMs = 15000) {
 export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
   const [precedents, setPrecedents] = useState<PrecedentInfo[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [offset, setOffset] = useState(0);
   const limit = 10;
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPrecedents = useCallback(async () => {
@@ -133,16 +134,16 @@ export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
       setError(null);
       const [count, page] = await Promise.all([
         contractService.getPrecedentCount(treasuryAddress),
-        contractService.getPrecedents(treasuryAddress, offset, limit),
+        contractService.getPrecedents(treasuryAddress, 0, limit),
       ]);
       setTotalCount(count);
-      setPrecedents(page);
+      setPrecedents((current) => mergePrecedentPages(current, page));
     } catch (err: any) {
       setError(err?.message || "Failed to load precedent log.");
     } finally {
       setLoading(false);
     }
-  }, [treasuryAddress, offset]);
+  }, [treasuryAddress]);
 
   useEffect(() => {
     fetchPrecedents();
@@ -150,11 +151,35 @@ export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
     return () => clearInterval(interval);
   }, [fetchPrecedents, pollIntervalMs]);
 
-  const loadMore = () => {
-    if (offset + limit < totalCount) {
-      setOffset((prev) => prev + limit);
+  const loadMore = useCallback(async () => {
+    if (loadingMore || precedents.length >= totalCount) {
+      return;
     }
-  };
 
-  return { precedents, totalCount, hasMore: offset + limit < totalCount, loadMore, loading, error, refetch: fetchPrecedents };
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const page = await contractService.getPrecedents(
+        treasuryAddress,
+        precedents.length,
+        limit,
+      );
+      setPrecedents((current) => mergePrecedentPages(current, page));
+    } catch (err: any) {
+      setError(err?.message || "Failed to load more precedents.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, precedents.length, totalCount, treasuryAddress]);
+
+  return {
+    precedents,
+    totalCount,
+    hasMore: precedents.length < totalCount,
+    loadMore,
+    loading,
+    loadingMore,
+    error,
+    refetch: fetchPrecedents,
+  };
 }

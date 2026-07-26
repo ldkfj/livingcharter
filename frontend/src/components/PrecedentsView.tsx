@@ -9,6 +9,7 @@ interface PrecedentsViewProps {
   hasMore: boolean;
   onLoadMore: () => void;
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   onRetry: () => void;
   onSelectArticleAnchor?: (articleId: number) => void;
@@ -20,6 +21,7 @@ export const PrecedentsView: React.FC<PrecedentsViewProps> = ({
   hasMore,
   onLoadMore,
   loading,
+  loadingMore,
   error,
   onRetry,
   onSelectArticleAnchor,
@@ -152,10 +154,11 @@ export const PrecedentsView: React.FC<PrecedentsViewProps> = ({
             className="btn-retry"
             onClick={onLoadMore}
             type="button"
+            disabled={loadingMore}
             style={{ margin: "1rem auto 0", background: "var(--bg-surface-hover)" }}
           >
             <ChevronDown size={16} />
-            <span>Load More Precedents</span>
+            <span>{loadingMore ? "Loading Precedents..." : "Load More Precedents"}</span>
           </button>
         )}
       </div>
