@@ -1,6 +1,6 @@
 import React, { useState, useRef } from "react";
 import { Coins, Send } from "lucide-react";
-import { parseGenToWei, validateGenAmount } from "../lib/validators";
+import { parseGenToWei, validateFundAmount } from "../lib/validators";
 import type { WriteResult } from "../lib/txEngine";
 
 interface FundFormProps {
@@ -22,7 +22,7 @@ export const FundForm: React.FC<FundFormProps> = ({
     e.preventDefault();
     setFieldError(null);
 
-    const err = validateGenAmount(amountStr);
+    const err = validateFundAmount(amountStr);
     if (err) {
       setFieldError(err);
       if (inputRef.current) inputRef.current.focus();

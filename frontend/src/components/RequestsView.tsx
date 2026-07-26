@@ -3,6 +3,7 @@ import { RequestInfo, RulingInfo } from "../types/contract";
 import { formatWeiToGen, truncateAddress, formatTimestamp } from "../lib/formatters";
 import { validateAppealArgument } from "../lib/validators";
 import type { WriteResult } from "../lib/txEngine";
+import { getPayoutAction } from "../lib/actionGates";
 import {
   FileText,
   Copy,
@@ -311,16 +312,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
         const canAdjudicate = ["SUBMITTED", "UNDETERMINED", "APPEALED", "APPEAL_UNDETERMINED"].includes(selectedReq.state_name?.toUpperCase());
         const canAppeal = selectedReq.state_name?.toUpperCase() === "RULED" && !selectedReq.appealed && nowSec < selectedReq.appeal_deadline;
         const secondsUntilAppealClose = selectedReq.appeal_deadline - nowSec;
-        const canPayout =
-          !selectedReq.paid &&
-          ((selectedReq.state_name?.toUpperCase() === "RULED" && nowSec >= selectedReq.appeal_deadline && selectedReq.initial_ruling && BigInt(selectedReq.initial_ruling.approved_amount_wei || 0) > 0n) ||
-           (selectedReq.state_name?.toUpperCase() === "FINAL_RULED" && selectedReq.appeal_ruling && BigInt(selectedReq.appeal_ruling.approved_amount_wei || 0) > 0n));
-
-        const effectiveApprovedWei = selectedReq.appeal_ruling
-          ? selectedReq.appeal_ruling.approved_amount_wei
-          : selectedReq.initial_ruling
-          ? selectedReq.initial_ruling.approved_amount_wei
-          : 0n;
+        const {
+          eligible: canPayout,
+          effectiveApprovedWei,
+        } = getPayoutAction(selectedReq, nowSec);
+        const closesWithoutTransfer = effectiveApprovedWei === 0n;
 
         return (
           <div
@@ -510,7 +506,11 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                   {canPayout && (
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                       <p style={{ fontSize: "0.85rem", color: "var(--accent-emerald)" }}>
-                        Approved Payout Amount: <strong>{formatWeiToGen(effectiveApprovedWei)} GEN</strong>
+                        {closesWithoutTransfer ? (
+                          "The effective ruling approves 0 GEN. Executing will close the request and free the requester's open slot."
+                        ) : (
+                          <>Approved Payout Amount: <strong>{formatWeiToGen(effectiveApprovedWei)} GEN</strong></>
+                        )}
                       </p>
                       <button
                         className="btn-retry"
@@ -519,8 +519,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                         type="button"
                         style={{ width: "fit-content", background: "var(--accent-emerald)" }}
                       >
-                        <Coins size={16} />
-                        <span>Execute Payout ({formatWeiToGen(effectiveApprovedWei)} GEN)</span>
+                        {closesWithoutTransfer ? <X size={16} /> : <Coins size={16} />}
+                        <span>
+                          {closesWithoutTransfer
+                            ? "Close request"
+                            : `Execute Payout (${formatWeiToGen(effectiveApprovedWei)} GEN)`}
+                        </span>
                       </button>
                     </div>
                   )}

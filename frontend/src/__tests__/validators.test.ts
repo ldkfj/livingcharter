@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   parseGenToWei,
-  validateGenAmount,
+  validateFundAmount,
+  validateRequestAmount,
   validatePurpose,
   validateEvidenceUrls,
   validateAppealArgument,
@@ -38,15 +39,35 @@ describe("parseGenToWei and formatWeiToGen round-trip", () => {
   });
 });
 
-describe("validateGenAmount", () => {
+describe("validateFundAmount", () => {
   it("accepts positive GEN amounts", () => {
-    expect(validateGenAmount("0.1")).toBeNull();
-    expect(validateGenAmount("1.5")).toBeNull();
+    expect(validateFundAmount("0.1")).toBeNull();
+    expect(validateFundAmount("1.5")).toBeNull();
   });
 
   it("rejects zero or negative amounts with E_INVALID_AMOUNT", () => {
-    expect(validateGenAmount("0")).toContain("E_INVALID_AMOUNT");
-    expect(validateGenAmount("invalid")).toContain("E_INVALID_AMOUNT");
+    expect(validateFundAmount("0")).toContain("E_INVALID_AMOUNT");
+    expect(validateFundAmount("invalid")).toContain("E_INVALID_AMOUNT");
+  });
+});
+
+describe("validateRequestAmount", () => {
+  it("accepts an amount within the current Treasury balance", () => {
+    expect(
+      validateRequestAmount("0.5", 1n * 10n ** 18n),
+    ).toBeNull();
+    expect(
+      validateRequestAmount("1", 1n * 10n ** 18n),
+    ).toBeNull();
+  });
+
+  it("rejects zero and amounts above the current Treasury balance", () => {
+    expect(
+      validateRequestAmount("0", 1n * 10n ** 18n),
+    ).toContain("E_INVALID_AMOUNT");
+    expect(
+      validateRequestAmount("1.1", 1n * 10n ** 18n),
+    ).toContain("E_INVALID_AMOUNT");
   });
 });
 
@@ -103,12 +124,12 @@ describe("validateAppealArgument", () => {
 });
 
 describe("validateRationale", () => {
-  it("accepts rationale up to 500 chars", () => {
+  it("accepts empty rationale and rationale up to 500 chars", () => {
+    expect(validateRationale("")).toBeNull();
     expect(validateRationale("Clarify workshop reimbursement eligibility.")).toBeNull();
   });
 
-  it("rejects empty or >500 char rationale", () => {
-    expect(validateRationale("")).toContain("E_RATIONALE_REQUIRED");
+  it("rejects rationale over 500 chars", () => {
     expect(validateRationale("a".repeat(501))).toContain("E_RATIONALE_TOO_LONG");
   });
 });

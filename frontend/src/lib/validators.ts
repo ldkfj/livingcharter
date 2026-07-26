@@ -478,11 +478,26 @@ export function parseGenToWei(genStr: string): bigint {
   return wholeWei + fracWei;
 }
 
-export function validateGenAmount(genStr: string): string | null {
+export function validateFundAmount(genStr: string): string | null {
   try {
     const wei = parseGenToWei(genStr);
     if (wei <= 0n) {
       return "E_INVALID_AMOUNT: Amount must be greater than 0 GEN.";
+    }
+    return null;
+  } catch (err: any) {
+    return `E_INVALID_AMOUNT: ${err?.message || "Invalid amount"}`;
+  }
+}
+
+export function validateRequestAmount(
+  genStr: string,
+  treasuryBalanceWei: bigint,
+): string | null {
+  try {
+    const wei = parseGenToWei(genStr);
+    if (wei <= 0n || wei > treasuryBalanceWei) {
+      return "E_INVALID_AMOUNT: Request amount must be greater than 0 and no more than the current Treasury balance.";
     }
     return null;
   } catch (err: any) {
@@ -537,9 +552,6 @@ export function validateAppealArgument(arg: string): string | null {
 }
 
 export function validateRationale(rationale: string): string | null {
-  if (!rationale || rationale.trim().length === 0) {
-    return "E_RATIONALE_REQUIRED: Amendment rationale is required.";
-  }
   if (rationale.length > 500) {
     return "E_RATIONALE_TOO_LONG: Rationale cannot exceed 500 characters.";
   }

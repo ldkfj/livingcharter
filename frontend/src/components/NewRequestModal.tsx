@@ -2,7 +2,7 @@ import React, { useState, useRef } from "react";
 import { FileText, X, Send, AlertCircle, Plus, Trash2 } from "lucide-react";
 import {
   parseGenToWei,
-  validateGenAmount,
+  validateRequestAmount,
   validatePurpose,
   validateEvidenceUrls,
 } from "../lib/validators";
@@ -14,6 +14,7 @@ interface NewRequestModalProps {
   onSubmitRequest: (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => Promise<WriteResult>;
   isExecuting: boolean;
   connectedAccount: string | null;
+  treasuryBalanceWei: bigint | null;
 }
 
 export const NewRequestModal: React.FC<NewRequestModalProps> = ({
@@ -22,6 +23,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
   onSubmitRequest,
   isExecuting,
   connectedAccount,
+  treasuryBalanceWei,
 }) => {
   const [amountStr, setAmountStr] = useState("0.05");
   const [purpose, setPurpose] = useState("");
@@ -66,7 +68,10 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
     setFormError(null);
 
     // 1. Validate Amount
-    const amtErr = validateGenAmount(amountStr);
+    const amtErr =
+      treasuryBalanceWei === null
+        ? "E_BALANCE_UNAVAILABLE: Treasury balance is not available. Retry the dashboard read before submitting."
+        : validateRequestAmount(amountStr, treasuryBalanceWei);
     if (amtErr) {
       setFormError(amtErr);
       if (amountRef.current) amountRef.current.focus();

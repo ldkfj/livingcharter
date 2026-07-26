@@ -3,6 +3,7 @@ import { AmendmentInfo } from "../types/contract";
 import { truncateAddress, formatTimestamp } from "../lib/formatters";
 import { Vote, Copy, Check, RefreshCw, Plus, ThumbsUp, ThumbsDown, CheckCircle, XCircle } from "lucide-react";
 import type { WriteResult } from "../lib/txEngine";
+import { getAmendmentActionGates } from "../lib/actionGates";
 
 interface AmendmentsViewProps {
   amendments: AmendmentInfo[];
@@ -118,14 +119,14 @@ export const AmendmentsView: React.FC<AmendmentsViewProps> = ({
           {amendments.map((am) => {
             const hasVoted = connectedAccount ? votedMap[`${connectedAccount.toLowerCase()}_${am.id}`] : false;
             const isProposer = connectedAccount && connectedAccount.toLowerCase() === am.proposer.toLowerCase();
-            const isProposedState = am.state_name?.toUpperCase() === "PROPOSED" || am.state === 0;
-            const deadlinePassed = nowSec >= am.deadline;
             const kindLabel = KIND_NAMES[am.kind] || `KIND_${am.kind}`;
-
-            // Early strict majority check: yes > memberCount / 2
-            const earlyMajorityReached = am.yes > Math.floor(memberCount / 2);
-            const canFinalize = isProposedState && (deadlinePassed || earlyMajorityReached);
-            const canCancel = isProposer && isProposedState && am.yes + am.no === 0;
+            const { canVote, canFinalize, canCancel } =
+              getAmendmentActionGates(
+                am,
+                memberCount,
+                nowSec,
+                Boolean(isProposer),
+              );
 
             return (
               <div
@@ -186,7 +187,7 @@ export const AmendmentsView: React.FC<AmendmentsViewProps> = ({
                   }}
                 >
                   <div style={{ display: "flex", gap: "0.5rem" }}>
-                    {isProposedState && !deadlinePassed && (
+                    {canVote && (
                       <>
                         <button
                           className="nav-btn"

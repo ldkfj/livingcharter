@@ -38,6 +38,8 @@ class UserData:
 - **React-DOM:** `v19.2.8`
 - **Vite:** `v6.4.3`
 - **TypeScript:** `v5.9.3`
+- **lossless-json:** `v4.3.0`
+- **Vitest:** `v4.1.10`
 
 ## Frontend write path (verified 2026-07-27)
 - **Create write client:** `createClient({ chain: studionet, endpoint: "https://studio.genlayer.com/api", account: accountAddress })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
