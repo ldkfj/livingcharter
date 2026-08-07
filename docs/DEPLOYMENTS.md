@@ -82,6 +82,21 @@ All three terminal amendment proofs left `charter_version=4`, `articles=4`, and 
 
 Final Treasury v3 readback: `balance_wei=950000000000000000`, `reserved_wei=0`, `available_balance_wei=950000000000000000`, `request_count=5`, `precedent_count=4`.
 
+### Production frontend promotion (2026-08-08)
+
+| Field | Verified value |
+| --- | --- |
+| Vercel account/team | `hongcham819-3406` / `gam` (`gam9`) |
+| Project | `livingcharter` |
+| Frontend source revision | `4ba3b8afe74b353d9536895fe6fb54e1629e2937` (the following audit-record commit is docs-only) |
+| Production deployment | `dpl_G4amwJFQVwkJA4uvinyueBiDY4MA`; status `READY`; target `production` |
+| Immutable deployment URL | `https://livingcharter-neu7vjme7-gam9.vercel.app` |
+| Production alias | `https://livingcharter.vercel.app` |
+| Production environment | Charter `0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`; Treasury v3 `0xa430f80c74cC90a1a75E3906055118e97CdC363b` |
+| HTTP/app-shell verification | Alias returned HTTP 200 with the LivingCharter root app shell |
+| Bundle verification | Production bundle contains the Charter and Treasury v3 addresses and does not contain the Treasury v2 address |
+| Studionet readback | `0.95 GEN`, charter v4, 4 articles, 3 members, 5 requests, 4 precedents; Treasury reserved 0 and available balance 0.95 GEN |
+
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
 ### Deployment classification and recovery
