@@ -33,7 +33,7 @@ async function write(who, address, functionName, args, valueWei = 0n, retries = 
   const c = clientFor(who);
   const hash = await c.writeContract({ address, functionName, args, value: valueWei });
   process.stdout.write(`  ${who} -> ${functionName}(${JSON.stringify(args, (k,v) => typeof v === "bigint" ? v.toString() : v).slice(0, 90)}) tx=${hash} ...`);
-  const receipt = await c.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 20000, retries });
+  const receipt = await c.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 60000, retries });
   const res = execResult(receipt);
   const status = receipt?.statusName ?? receipt?.status;
   console.log(` [${status}/${res}]`);

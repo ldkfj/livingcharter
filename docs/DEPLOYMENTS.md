@@ -4,7 +4,7 @@ This is the canonical deployment, source-parity, recovery, and live-proof record
 
 ## Release-candidate status (2026-08-08)
 
-The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`), and its source parity is verified below. It has not been funded, promoted to the frontend, or claimed as the submission instance. Push, production deployment, and resubmission remain blocked until the remaining proof matrix is complete.
+The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed and funded with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`), and its source parity is verified below. It has not been promoted to the frontend or claimed as the submission instance. Push, production deployment, and resubmission remain blocked until the remaining proof matrix is complete.
 
 Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
 
@@ -54,6 +54,16 @@ Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae6
 | Payout | `0xb813d4de58a3f576010fc2401b9a04ccaab62803587cd6f161e7f07beed3162c` — `FINALIZED/SUCCESS` | `PAID`; balance 1.00 → 0.98 GEN; full 0.02 reservation released |
 | Payout replay | `0x71ea508fb2da9a9bc99e07cf2f6c8ab3924600afa55eb5c5c35336860e9009be` — `FINALIZED/ERROR/E_ALREADY_PAID` | Treasury state unchanged |
 
+### Charter terminal-amendment proof (Treasury v3 release candidate)
+
+| Action | Transaction/result | Readback |
+| --- | --- | --- |
+| Cancel amendment #4 before voting | `0x3f87ed0f946fc27aec1980abf63253b222e7a538d20fab969abf4540c414bcd8` — `FINALIZED/SUCCESS` | Amendment #4 `CANCELLED`, yes/no `0/0`; charter version remains 4 |
+| Propose tied-vote amendment #5 | `0xca5f9ff23134e85b6802a9a946fa826b5f12ccfe9eaa64521b1191461a628418` — `FINALIZED/SUCCESS` | Amendment #5 created |
+| Vote yes on amendment #5 | `0x710bd1cea4967e18495b1c13f2fcac319a3f8b857a44f26491b03803f81b48f8` — `FINALIZED/SUCCESS` | yes/no `1/0` |
+| Vote no on amendment #5 | `0x720533b7025ef3ebffe47c6f3fd539fe5785bb980dfb2b261b14b134a4ad2f5e` — `FINALIZED/SUCCESS` | Amendment #5 `VOTING`, yes/no `1/1`, deadline `1786133549` |
+| Propose unvoted amendment #6 | `0x65214c394248f62ab6aae70a4dcb12ea7b5a8a1d8ab53f8f41eb8b1e72ac96dc` — `FINALIZED/SUCCESS` | Final state readback pending after RPC quota reset |
+
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
 ### Deployment classification and recovery
@@ -87,9 +97,9 @@ The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it
 | Reservation overcommit | **COMPLETE** — B+C successful reservations, rejected aggregate-overcommit tx `0x17120f...2baa`, unchanged state readback |
 | Reservation conservation | **COMPLETE for full payout** — exact 0.02 GEN balance delta, full reservation release, paid-state readback, replay rejected; PARTIAL/zero journeys remain in the advertised-product row |
 | Infrastructure ladder | **COMPLETE** — requests #1/#2 each show `UNDETERMINED → FAILED`; no ruling or precedent; reservations fully released; FAILED replay rejected |
-| Amendment cancellation | `cancel_amendment` tx and `CANCELLED` readback |
-| Amendment rejection | Voting/finalization txs and `REJECTED` readback |
-| Amendment expiration | Deadline/finalization tx and `EXPIRED` readback |
+| Amendment cancellation | **COMPLETE** — `cancel_amendment` tx `0x3f87ed...bcd8`, amendment #4 `CANCELLED` readback, charter unchanged |
+| Amendment rejection | **IN PROGRESS** — amendment #5 proposed with finalized 1–1 voting transactions; deadline finalization/readback pending |
+| Amendment expiration | **IN PROGRESS** — unvoted amendment #6 proposal finalized; deadline finalization/readback pending |
 | Advertised product journey | **IN PROGRESS** — APPROVE + appeal + payout + two precedents complete; PARTIAL, DENY, and charter-change differential remain |
 | Production parity | Vercel deployment revision/env, HTTP 200, and dashboard readback matching Studionet |
 
