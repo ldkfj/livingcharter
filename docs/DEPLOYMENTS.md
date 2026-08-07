@@ -4,23 +4,26 @@ This is the canonical deployment, source-parity, recovery, and live-proof record
 
 ## Release-candidate status (2026-08-08)
 
-The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. The local candidate contains two later changes: bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`). Neither is claimed as live. Push, production deployment, and resubmission remain blocked until Treasury v3 source parity and the proof matrix below are complete.
+The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`), and its source parity is verified below. It has not been funded, promoted to the frontend, or claimed as the submission instance. Push, production deployment, and resubmission remain blocked until the remaining proof matrix is complete.
 
 Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
 
-### Draft Treasury v3 manifest (`PRE-DEPLOY AUTHORIZATION`)
+### Treasury v3 manifest (`POST-DEPLOY`, promotion pending)
 
 | Field | Intended value |
 | --- | --- |
 | Network | GenLayer Studionet; chain ID `61999`; RPC `https://studio.genlayer.com/api` |
+| Contract | [`0xa430f80c74cC90a1a75E3906055118e97CdC363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b) |
+| Deploy transaction | `0x6b97609aa9473e6a53e0e3a9efce0f8a9cf62bcdd1b097f0420f0cbacb6d4087` — status `FINALIZED`; leader and all quorum-participating validators returned `SUCCESS`/agree. Two idle validators were cancelled after quorum (`CONSENSUS_VALIDATOR_QUORUM_REACHED`). |
 | Source revision | Commit `18b4918915698140c5649918698fe0f91b997dcc` |
-| Source file/hash | `contracts/treasury.py`; LF-normalized SHA-256 `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd` |
+| Source file/hash | `contracts/treasury.py`; RPC `getContractCode` is byte-identical after LF normalization, length 32,009, SHA-256 `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd` |
 | Constructor | `charter_address=0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`, `appeal_window_seconds=300`, `member_cooldown_seconds=60` |
 | Linked contract | Existing Charter `0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`; verify `get_charter_bundle` before deployment and address readback after deployment |
 | Upgrader | None in candidate source |
 | Classification | `INTENTIONALLY FROZEN`; explicitly confirmed by the user on 2026-08-08 with acknowledgement that defects require redeployment |
 | Configuration order | Deploy → source/schema/state readback → fund → live proof matrix → update frontend Production env → deploy frontend → production readback |
-| Deployment wallet | Studio deployer A, `0x7885536194BbD6E1D0A6Ab991aB215CFa9542339`; selected by the user. The user will execute the Studio deployment. |
+| Deployment wallet | Studio deployer A, `0x7885536194BbD6E1D0A6Ab991aB215CFa9542339`; selected and operated by the user |
+| Initial readback | `balance_wei=0`, `reserved_wei=0`, `available_balance_wei=0`, matching Charter address, windows `300/60`, `request_count=0`, `precedent_count=0` |
 
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
@@ -30,7 +33,7 @@ The frozen-by-default behavior and its irreversibility are documented by [GenLay
 | --- | --- | --- |
 | Charter `0x0D22...c9DB` | Frozen: no upgrader is registered, so GenVM applies the default post-constructor lock | `INTENTIONALLY FROZEN`, explicitly confirmed by the user on 2026-08-08 |
 | Treasury v2 `0x99A0...2F16` | Frozen: no upgrader is registered | Historical deployment; to be superseded, not mutated |
-| Treasury v3 candidate | No upgrader in candidate source; deployment will be permanently frozen | `INTENTIONALLY FROZEN`, confirmed for deployment by Studio deployer A; awaiting the user-executed transaction |
+| Treasury v3 `0xa430...363b` | No upgrader; permanently frozen after constructor | `INTENTIONALLY FROZEN`, confirmed by the user before the user-executed deployment |
 
 A frozen contract cannot be upgraded or repaired in place. Recovery is: retain the immutable historical address and audit trail; deploy the reviewed source as a new contract with the same Charter/configuration; verify deploy `FINALIZED` plus execution `SUCCESS`; verify deployed-source SHA-256; fund by a new transaction; update `VITE_TREASURY_ADDRESS`; rerun every required live journey; deploy the frontend; and verify chain readback from the production app. If Studionet itself resets, redeploy both contracts, bootstrap the four founding articles, rebuild membership through amendments, and regenerate this record. No private key or local `.secrets/` content belongs in the recovery package.
 
@@ -49,7 +52,7 @@ These rows are intentionally `PENDING`; they are release blockers, not claims of
 
 | Journey | Required proof |
 | --- | --- |
-| Deployment parity | Deploy tx, constructor values, exact deployed-source SHA-256, contract schema, state readback |
+| Deployment parity | **COMPLETE** — deploy tx, constructor `Charter/300/60`, 10-method schema, exact deployed-source SHA-256, and zero-state readback verified by Codex RPC checks |
 | Reservation overcommit | Successful reservations from separate members, rejected aggregate-overcommit tx, unchanged state readback |
 | Reservation conservation | Partial/full/zero payout as applicable, released reservation, exact balance delta, replay rejected |
 | Infrastructure ladder | Authentic all-evidence-unavailable adjudications showing `UNDETERMINED` then `FAILED`, no DENY precedent, reservation released |

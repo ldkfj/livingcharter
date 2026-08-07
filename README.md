@@ -15,7 +15,7 @@ The deployed contracts carry **real multi-wallet usage**, not a single demo tran
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
-> Release-candidate status: the live Treasury v2 above is the last verified deployment. The repository currently contains a solvency hardening change that reserves the maximum liability of every open request. It is not a release until a new Treasury is deployed, source parity is verified, the production address is updated, and the full live proof matrix in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md) is complete.
+> Release-candidate status: Treasury v3 with reservation accounting is deployed at [`0xa430...363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b), and RPC source parity is verified. The production frontend remains on Treasury v2 until v3 is funded and the full live proof matrix in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md) is complete.
 
 ## The trust problem
 
