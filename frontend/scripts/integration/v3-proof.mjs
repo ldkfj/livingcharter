@@ -137,6 +137,25 @@ if (step === "reserve") {
   assertState(after.reserved_wei === after.balance_wei, "all funded GEN must be reserved");
   assertState(after.available_balance_wei === 0n, "available balance must be zero");
   console.log(`state: ${json(after)}`);
+} else if (step === "reserve-c") {
+  const before = await view("get_treasury_state");
+  assertState(before.request_count === 1, "request B must be the only request");
+  assertState(before.reserved_wei === 600_000_000_000_000_000n, "request B must reserve 0.6 GEN");
+  assertState(before.available_balance_wei === 400_000_000_000_000_000n, "0.4 GEN must remain available");
+
+  await write("C", "submit_request", [
+    400_000_000_000_000_000n,
+    "Reservation proof request C using intentionally unavailable public evidence.",
+    UNAVAILABLE_EVIDENCE,
+    "",
+    "",
+  ]);
+
+  const after = await view("get_treasury_state");
+  assertState(after.request_count === 2, "request C must be recorded as request 2");
+  assertState(after.reserved_wei === after.balance_wei, "all funded GEN must be reserved");
+  assertState(after.available_balance_wei === 0n, "available balance must be zero");
+  console.log(`state: ${json(after)}`);
 } else if (step === "overcommit") {
   const before = await view("get_treasury_state");
   await writeExpectedError(
@@ -169,5 +188,5 @@ if (step === "reserve") {
   console.log(`request 2: ${json(await view("get_request", [2]))}`);
   console.log(`precedents: ${json(await view("get_precedents", [0, 10]))}`);
 } else {
-  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|overcommit|fail-b|fail-c|state>");
+  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|reserve-c|overcommit|fail-b|fail-c|state>");
 }
