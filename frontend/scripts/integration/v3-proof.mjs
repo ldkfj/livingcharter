@@ -11,6 +11,8 @@ const RPC = "https://studio.genlayer.com/api";
 const TREASURY = "0xa430f80c74cC90a1a75E3906055118e97CdC363b";
 const UNAVAILABLE_EVIDENCE = "https://livingcharter-proof.invalid/evidence";
 const PYCON_EVIDENCE = "https://us.pycon.org/2026/attend/information/";
+const KEYCHRON_EVIDENCE = "https://www.keychron.com/products/keychron-k2-wireless-mechanical-keyboard";
+const DINNER_EVIDENCE = "https://www.mcdonalds.com/us/en-us/full-menu.html";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const keys = JSON.parse(
   readFileSync(join(root, ".secrets", "integration-accounts.json"), "utf8"),
@@ -258,11 +260,81 @@ if (step === "reserve") {
   const after = await view("get_treasury_state");
   assertState(json(after) === json(before), "payout replay must leave treasury state unchanged");
   console.log(`unchanged state: ${json(after)}`);
+} else if (step === "remaining-submit") {
+  let state = await view("get_treasury_state");
+  if (state.request_count === 3) {
+    await write("C", "submit_request", [
+      40_000_000_000_000_000n,
+      "Reimburse a Keychron K2 mechanical keyboard for development work; the submitted product page must publicly substantiate the claimed price under charter articles 2 and 3.",
+      KEYCHRON_EVIDENCE,
+      "",
+      "",
+    ]);
+  }
+  state = await view("get_treasury_state");
+  if (state.request_count === 4) {
+    await write("B", "submit_request", [
+      50_000_000_000_000_000n,
+      "Reimburse the documented team dinner celebrating the integration milestone under amended charter article 4; requesting 0.05 GEN against its 0.03 GEN cap.",
+      DINNER_EVIDENCE,
+      "",
+      "",
+    ]);
+  }
+  state = await view("get_treasury_state");
+  assertState(state.request_count === 5, "requests 4 and 5 must both be submitted");
+  assertState(state.reserved_wei === 90_000_000_000_000_000n, "requests 4+5 must reserve 0.09 GEN");
+  console.log(`request 4: ${json(await view("get_request", [4]))}`);
+  console.log(`request 5: ${json(await view("get_request", [5]))}`);
+  console.log(`treasury: ${json(state)}`);
+} else if (step === "remaining-adjudicate") {
+  let denied = await view("get_request", [4]);
+  if (denied.state_name === "SUBMITTED") {
+    await write("B", "adjudicate_request", [4]);
+    denied = await view("get_request", [4]);
+  }
+  assertState(denied.state_name === "RULED", "request 4 must be RULED");
+  assertState(denied.initial_ruling?.decision_name === "DENY", "request 4 must prove DENY");
+  assertState(denied.initial_ruling.approved_amount_wei === 0n, "DENY amount must be zero");
+
+  let partial = await view("get_request", [5]);
+  if (partial.state_name === "SUBMITTED") {
+    await write("C", "adjudicate_request", [5]);
+    partial = await view("get_request", [5]);
+  }
+  assertState(partial.state_name === "RULED", "request 5 must be RULED");
+  assertState(partial.initial_ruling?.decision_name === "PARTIAL", "request 5 must prove PARTIAL");
+  assertState(partial.initial_ruling.approved_amount_wei === 30_000_000_000_000_000n, "article 4 cap must be 0.03 GEN");
+  console.log(`request 4: ${json(denied)}`);
+  console.log(`request 5: ${json(partial)}`);
+} else if (step === "remaining-close") {
+  let denied = await view("get_request", [4]);
+  let partial = await view("get_request", [5]);
+  const remaining = Math.max(denied.appeal_deadline, partial.appeal_deadline) - Math.floor(Date.now() / 1000);
+  if (remaining > 0) throw new Error(`Appeal windows remain open; retry in ${remaining + 2} seconds.`);
+  if (denied.state_name === "RULED") await write("B", "execute_payout", [4]);
+  if (partial.state_name === "RULED") await write("C", "execute_payout", [5]);
+  denied = await view("get_request", [4]);
+  partial = await view("get_request", [5]);
+  const state = await view("get_treasury_state");
+  assertState(denied.state_name === "CLOSED" && denied.reservation_active === false, "DENY must close and release");
+  assertState(partial.state_name === "PAID" && partial.reservation_active === false, "PARTIAL must pay and release");
+  assertState(state.balance_wei === 950_000_000_000_000_000n, "final balance must be 0.95 GEN");
+  assertState(state.reserved_wei === 0n && state.available_balance_wei === state.balance_wei, "all reservations must be released");
+  console.log(`request 4: ${json(denied)}`);
+  console.log(`request 5: ${json(partial)}`);
+  console.log(`treasury: ${json(state)}`);
+} else if (step === "remaining-replay") {
+  const before = await view("get_treasury_state");
+  await writeExpectedError("B", "execute_payout", [4], "E_NOT_PAYABLE");
+  const after = await view("get_treasury_state");
+  assertState(json(after) === json(before), "CLOSED replay must leave state unchanged");
+  console.log(`unchanged state: ${json(after)}`);
 } else if (step === "state") {
   console.log(`treasury: ${json(await view("get_treasury_state"))}`);
   console.log(`request 1: ${json(await view("get_request", [1]))}`);
   console.log(`request 2: ${json(await view("get_request", [2]))}`);
   console.log(`precedents: ${json(await view("get_precedents", [0, 10]))}`);
 } else {
-  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|reserve-c|overcommit|fail-b|fail-c|replay|product-submit|product-adjudicate|product-appeal|product-appeal-adjudicate|product-payout|product-replay|state>");
+  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|reserve-c|overcommit|fail-b|fail-c|replay|product-submit|product-adjudicate|product-appeal|product-appeal-adjudicate|product-payout|product-replay|remaining-submit|remaining-adjudicate|remaining-close|remaining-replay|state>");
 }
