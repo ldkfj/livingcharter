@@ -1,6 +1,7 @@
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 import { isLosslessNumber, parse } from "lossless-json";
+import { runStudionetRead } from "./rpcRead";
 
 export const genlayerClient = createClient({
   chain: studionet,
@@ -58,11 +59,13 @@ export async function readContractJson(
   functionName: string,
   args: ContractReadArgs = [],
 ): Promise<unknown> {
-  const rawResult = await genlayerClient.readContract({
-    address: address as `0x${string}`,
-    functionName,
-    args,
-  });
+  const rawResult = await runStudionetRead(() =>
+    genlayerClient.readContract({
+      address: address as `0x${string}`,
+      functionName,
+      args,
+    }),
+  );
 
   if (typeof rawResult === "string") {
     return parseContractJson(rawResult);

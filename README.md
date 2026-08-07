@@ -17,7 +17,7 @@ A shared treasury (club, DAO working group, small fund) normally hands spending 
 | Treasury contract | [`0x99A0b62199b412421c6466E1C60e0C0D220D2F16`](https://explorer-studio.genlayer.com/address/0x99A0b62199b412421c6466E1C60e0C0D220D2F16) |
 | Contract source | [`contracts/charter.py`](contracts/charter.py), [`contracts/treasury.py`](contracts/treasury.py) |
 
-The deployed contracts carry **real multi-wallet usage**, not a single demo transaction: 4 spend requests covering all three verdicts, one appeal adjudicated and upheld, three ratified amendments, and 5 precedents - including the living-charter moment where a team-dinner request denied under charter v3 is partially approved under the amended article at charter v4. Every transaction hash is recorded in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md); all are `FINALIZED` with execution `SUCCESS`. (An earlier Treasury instance at `0xB984B0a79B9BC17C332017B0640Dc82eE6151393` holds two additional authentic denials from before an evidence-rendering fix - evidence strictness working as designed.)
+The deployed contracts carry **real multi-wallet usage**, not a single demo transaction: 5 spend requests covering all three verdicts, one appeal adjudicated and upheld, three ratified amendments, and 6 precedents - including the living-charter moment where a team-dinner request denied under charter v3 is partially approved under the amended article at charter v4. Every transaction hash is recorded in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md); all are `FINALIZED` with execution `SUCCESS`. (An earlier Treasury instance at `0xB984B0a79B9BC17C332017B0640Dc82eE6151393` holds two additional authentic denials from before an evidence-rendering fix - evidence strictness working as designed.)
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
@@ -32,7 +32,7 @@ Studionet is GenLayer's hosted development network; persistence is controlled by
 
 ## Frontend
 
-React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go through a lossless-JSON, runtime-validated data layer (wei as `bigint` end to end). Write paths use an EIP-1193 wallet with Studionet chain management and a truthful transaction lifecycle: the UI shows real consensus stages and mutates state **only** after a transaction is `FINALIZED` with execution `SUCCESS`; contract error codes are surfaced, timeouts are a distinct terminal state, and nothing on-chain is ever simulated.
+React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go through a lossless-JSON, runtime-validated data layer (wei as `bigint` end to end). A shared FIFO limiter allows at most two Studionet reads at once; only the visible tab polls, polling never overlaps its prior load, and transient capacity failures receive bounded backoff before an honest Retry state—never simulated data. Write paths use an EIP-1193 wallet with Studionet chain management and a truthful transaction lifecycle: the UI shows real consensus stages and mutates state **only** after a transaction is `FINALIZED` with execution `SUCCESS`; contract error codes are surfaced, timeouts are a distinct terminal state, and nothing on-chain is ever simulated.
 
 ## Repository layout
 
@@ -67,7 +67,7 @@ cd frontend
 npm ci
 copy .env.example .env     # then fill in the two deployed addresses (README table above)
 npm run dev                # local app
-npx vitest run             # 81 tests
+npx vitest run             # 97 tests
 npm run build              # production build
 ```
 

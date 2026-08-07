@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { contractService } from "../services/contractService";
 import {
   CharterBundle,
@@ -9,6 +9,7 @@ import {
   AmendmentInfo,
 } from "../types/contract";
 import { mergePrecedentPages } from "../lib/precedents";
+import { isTransientRpcError } from "../lib/rpcRead";
 
 export interface DashboardData {
   charterBundle: CharterBundle;
@@ -16,12 +17,81 @@ export interface DashboardData {
   treasuryState: TreasuryState;
 }
 
-export function useDashboardData(charterAddress: string, treasuryAddress: string, pollIntervalMs = 15000) {
+export interface ContractDataOptions {
+  enabled?: boolean;
+  pollIntervalMs?: number;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function useSingleFlight(task: () => Promise<void>): () => Promise<void> {
+  const inFlight = useRef<Promise<void> | null>(null);
+
+  return useCallback(() => {
+    if (inFlight.current) {
+      return inFlight.current;
+    }
+
+    const current = task().finally(() => {
+      if (inFlight.current === current) {
+        inFlight.current = null;
+      }
+    });
+    inFlight.current = current;
+    return current;
+  }, [task]);
+}
+
+function useCompletionPolling(
+  fetchData: () => Promise<void>,
+  enabled: boolean,
+  pollIntervalMs: number,
+): void {
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      await fetchData();
+      if (!cancelled) {
+        timer = setTimeout(() => {
+          void poll();
+        }, pollIntervalMs);
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+    };
+  }, [enabled, fetchData, pollIntervalMs]);
+}
+
+export function useDashboardData(
+  charterAddress: string,
+  treasuryAddress: string,
+  options: ContractDataOptions = {},
+) {
+  const enabled = options.enabled ?? true;
+  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const performFetch = useCallback(async () => {
+    if (!hasLoaded.current) {
+      setLoading(true);
+    }
     try {
       setError(null);
       const [charterBundle, charterCounts, treasuryState] = await Promise.all([
@@ -30,34 +100,43 @@ export function useDashboardData(charterAddress: string, treasuryAddress: string
         contractService.getTreasuryState(treasuryAddress),
       ]);
       setData({ charterBundle, charterCounts, treasuryState });
-    } catch (err: any) {
-      setError(err?.message || "Failed to load dashboard data from GenLayer Studionet.");
+      hasLoaded.current = true;
+    } catch (err: unknown) {
+      if (!hasLoaded.current || !isTransientRpcError(err)) {
+        setError(errorMessage(err, "Failed to load dashboard data from GenLayer Studionet."));
+      }
     } finally {
       setLoading(false);
     }
   }, [charterAddress, treasuryAddress]);
+  const fetchData = useSingleFlight(performFetch);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [fetchData, pollIntervalMs]);
+  useCompletionPolling(fetchData, enabled, pollIntervalMs);
 
   return { data, loading, error, refetch: fetchData };
 }
 
-export function useRequests(treasuryAddress: string, pollIntervalMs = 15000) {
+export function useRequests(
+  treasuryAddress: string,
+  options: ContractDataOptions = {},
+) {
+  const enabled = options.enabled ?? true;
+  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
   const [requests, setRequests] = useState<RequestInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
-  const fetchRequests = useCallback(async () => {
+  const performFetch = useCallback(async () => {
+    if (!hasLoaded.current) {
+      setLoading(true);
+    }
     try {
       setError(null);
       const count = await contractService.getRequestCount(treasuryAddress);
       if (count === 0) {
         setRequests([]);
-        setLoading(false);
+        hasLoaded.current = true;
         return;
       }
 
@@ -67,35 +146,44 @@ export function useRequests(treasuryAddress: string, pollIntervalMs = 15000) {
       }
       const results = await Promise.all(reqPromises);
       setRequests(results.reverse()); // Newest first
-    } catch (err: any) {
-      setError(err?.message || "Failed to load spend requests.");
+      hasLoaded.current = true;
+    } catch (err: unknown) {
+      if (!hasLoaded.current || !isTransientRpcError(err)) {
+        setError(errorMessage(err, "Failed to load spend requests."));
+      }
     } finally {
       setLoading(false);
     }
   }, [treasuryAddress]);
+  const fetchRequests = useSingleFlight(performFetch);
 
-  useEffect(() => {
-    fetchRequests();
-    const interval = setInterval(fetchRequests, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [fetchRequests, pollIntervalMs]);
+  useCompletionPolling(fetchRequests, enabled, pollIntervalMs);
 
   return { requests, loading, error, refetch: fetchRequests };
 }
 
-export function useAmendments(charterAddress: string, pollIntervalMs = 15000) {
+export function useAmendments(
+  charterAddress: string,
+  options: ContractDataOptions = {},
+) {
+  const enabled = options.enabled ?? true;
+  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
   const [amendments, setAmendments] = useState<AmendmentInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
-  const fetchAmendments = useCallback(async () => {
+  const performFetch = useCallback(async () => {
+    if (!hasLoaded.current) {
+      setLoading(true);
+    }
     try {
       setError(null);
       const counts = await contractService.getCharterCounts(charterAddress);
       const count = counts.amendments;
       if (count === 0) {
         setAmendments([]);
-        setLoading(false);
+        hasLoaded.current = true;
         return;
       }
 
@@ -105,31 +193,41 @@ export function useAmendments(charterAddress: string, pollIntervalMs = 15000) {
       }
       const results = await Promise.all(promises);
       setAmendments(results.reverse());
-    } catch (err: any) {
-      setError(err?.message || "Failed to load amendments.");
+      hasLoaded.current = true;
+    } catch (err: unknown) {
+      if (!hasLoaded.current || !isTransientRpcError(err)) {
+        setError(errorMessage(err, "Failed to load amendments."));
+      }
     } finally {
       setLoading(false);
     }
   }, [charterAddress]);
+  const fetchAmendments = useSingleFlight(performFetch);
 
-  useEffect(() => {
-    fetchAmendments();
-    const interval = setInterval(fetchAmendments, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [fetchAmendments, pollIntervalMs]);
+  useCompletionPolling(fetchAmendments, enabled, pollIntervalMs);
 
   return { amendments, loading, error, refetch: fetchAmendments };
 }
 
-export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
+export function usePrecedents(
+  treasuryAddress: string,
+  options: ContractDataOptions = {},
+) {
+  const enabled = options.enabled ?? true;
+  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
   const [precedents, setPrecedents] = useState<PrecedentInfo[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const limit = 10;
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
+  const loadingMoreRef = useRef(false);
 
-  const fetchPrecedents = useCallback(async () => {
+  const performFetch = useCallback(async () => {
+    if (!hasLoaded.current) {
+      setLoading(true);
+    }
     try {
       setError(null);
       const [count, page] = await Promise.all([
@@ -138,24 +236,25 @@ export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
       ]);
       setTotalCount(count);
       setPrecedents((current) => mergePrecedentPages(current, page));
-    } catch (err: any) {
-      setError(err?.message || "Failed to load precedent log.");
+      hasLoaded.current = true;
+    } catch (err: unknown) {
+      if (!hasLoaded.current || !isTransientRpcError(err)) {
+        setError(errorMessage(err, "Failed to load precedent log."));
+      }
     } finally {
       setLoading(false);
     }
   }, [treasuryAddress]);
+  const fetchPrecedents = useSingleFlight(performFetch);
 
-  useEffect(() => {
-    fetchPrecedents();
-    const interval = setInterval(fetchPrecedents, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [fetchPrecedents, pollIntervalMs]);
+  useCompletionPolling(fetchPrecedents, enabled, pollIntervalMs);
 
   const loadMore = useCallback(async () => {
-    if (loadingMore || precedents.length >= totalCount) {
+    if (loadingMoreRef.current || precedents.length >= totalCount) {
       return;
     }
 
+    loadingMoreRef.current = true;
     setLoadingMore(true);
     setError(null);
     try {
@@ -165,12 +264,13 @@ export function usePrecedents(treasuryAddress: string, pollIntervalMs = 15000) {
         limit,
       );
       setPrecedents((current) => mergePrecedentPages(current, page));
-    } catch (err: any) {
-      setError(err?.message || "Failed to load more precedents.");
+    } catch (err: unknown) {
+      setError(errorMessage(err, "Failed to load more precedents."));
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
-  }, [loadingMore, precedents.length, totalCount, treasuryAddress]);
+  }, [precedents.length, totalCount, treasuryAddress]);
 
   return {
     precedents,

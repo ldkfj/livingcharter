@@ -79,8 +79,6 @@ Spend requests (Treasury v2):
 
 Final on-chain state at submission: balance 0.94 GEN; 5 requests all terminal; 6 precedents; charter v4; 3 members.
 
-Final state: balance 0.95 GEN; 4 requests all terminal (PAID/CLOSED/CLOSED/PAID); 5 precedents; the same request type denied under charter v3 (precedent #4) is partially approved under v4 (precedent #5) — the living-charter loop demonstrated on-chain.
-
 ## Final submission instance (decided 2026-07-27)
 
 Charter + Treasury v2 above ARE the submission deployment (user-approved) — they carry genuine multi-wallet activity.

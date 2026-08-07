@@ -5,7 +5,6 @@ import { contractService } from "./contractService";
 const ADDRESS = "0x1111111111111111111111111111111111111111";
 
 const readContractSpy = vi.spyOn(genlayerClient, "readContract");
-const getBalanceSpy = vi.spyOn(genlayerClient, "getBalance");
 
 const malformedReadCases: Array<{
   name: string;
@@ -56,7 +55,6 @@ const malformedReadCases: Array<{
 describe("contractService validated read boundary", () => {
   beforeEach(() => {
     readContractSpy.mockReset();
-    getBalanceSpy.mockReset();
   });
 
   it.each(malformedReadCases)(
@@ -68,10 +66,10 @@ describe("contractService validated read boundary", () => {
     },
   );
 
-  it("propagates a balance read failure instead of synthesizing a zero balance", async () => {
+  it("returns the contract-reported balance losslessly without a second RPC read", async () => {
     readContractSpy.mockResolvedValue(
       JSON.stringify({
-        balance_wei: "1100000000000000000",
+        balance_wei: "900719925474099312345",
         charter_address: ADDRESS,
         appeal_window_seconds: 300,
         member_cooldown_seconds: 60,
@@ -79,10 +77,10 @@ describe("contractService validated read boundary", () => {
         precedent_count: 0,
       }) as never,
     );
-    getBalanceSpy.mockRejectedValue(new Error("RPC balance unavailable"));
 
-    await expect(contractService.getTreasuryState(ADDRESS)).rejects.toThrow(
-      "RPC balance unavailable",
-    );
+    await expect(contractService.getTreasuryState(ADDRESS)).resolves.toMatchObject({
+      balance_wei: 900719925474099312345n,
+    });
+    expect(readContractSpy).toHaveBeenCalledTimes(1);
   });
 });

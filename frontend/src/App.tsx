@@ -86,16 +86,27 @@ export const App: React.FC = () => {
     return <EnvGuardFallback errors={errors} />;
   }
 
-  const dashboardState = useDashboardData(config.charterAddress, config.treasuryAddress);
-  const requestsState = useRequests(config.treasuryAddress);
-  const amendmentsState = useAmendments(config.charterAddress);
-  const precedentsState = usePrecedents(config.treasuryAddress);
+  const dashboardState = useDashboardData(config.charterAddress, config.treasuryAddress, {
+    enabled: activeTab === "dashboard",
+  });
+  const requestsState = useRequests(config.treasuryAddress, {
+    enabled: activeTab === "requests",
+  });
+  const amendmentsState = useAmendments(config.charterAddress, {
+    enabled: activeTab === "amendments",
+  });
+  const precedentsState = usePrecedents(config.treasuryAddress, {
+    enabled: activeTab === "precedents",
+  });
 
-  const refetchAll = () => {
-    dashboardState.refetch();
-    requestsState.refetch();
-    amendmentsState.refetch();
-    precedentsState.refetch();
+  const refetchActiveView = () => {
+    const activeRefetch = {
+      dashboard: dashboardState.refetch,
+      requests: requestsState.refetch,
+      amendments: amendmentsState.refetch,
+      precedents: precedentsState.refetch,
+    }[activeTab];
+    void activeRefetch();
   };
 
   // Write Action Executor
@@ -119,7 +130,7 @@ export const App: React.FC = () => {
         valueWei,
         (st) => setTxStatus(st)
       );
-      refetchAll();
+      refetchActiveView();
       return { kind: "success", hash };
     } catch (err: any) {
       const error = err?.message || String(err);

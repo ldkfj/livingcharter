@@ -1,4 +1,4 @@
-import { readContractJson, genlayerClient } from "../lib/genlayerClient";
+import { readContractJson } from "../lib/genlayerClient";
 import { FRONTEND_CONTRACT_CALLS } from "../lib/contractMethods";
 import {
   CharterBundle,
@@ -74,16 +74,12 @@ export const contractService = {
 
   // Treasury View Calls
   async getTreasuryState(treasuryAddress: string): Promise<TreasuryState> {
-    const state = validateTreasuryState(
+    return validateTreasuryState(
       await readContractJson(
         treasuryAddress,
         FRONTEND_CONTRACT_CALLS.treasury.getTreasuryState.methodName,
       ),
     );
-    const balance = await genlayerClient.getBalance({
-      address: treasuryAddress as `0x${string}`,
-    });
-    return { ...state, balance_wei: balance };
   },
 
   async getRequestCount(treasuryAddress: string): Promise<number> {

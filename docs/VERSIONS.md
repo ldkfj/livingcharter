@@ -40,6 +40,15 @@ class UserData:
 - **TypeScript:** `v5.9.3`
 - **lossless-json:** `v4.3.0`
 - **Vitest:** `v4.1.10`
+- **viem (transitive through genlayer-js):** `v2.55.8`
+
+## Frontend read-availability policy (verified 2026-07-30)
+- **Canonical read path:** all contract views still use `genlayer-js` `client.readContract`; the frontend does not decode raw contract storage or substitute a second RPC protocol. Source URL: https://docs.genlayer.com/developers/decentralized-applications/reading-data
+- **Installed SDK transport:** `genlayer-js@1.1.8` creates its viem custom transport with `retryCount: 0` and `retryDelay: 0`; therefore the application supplies the bounded availability policy rather than assuming the SDK retries.
+- **Application policy:** one shared FIFO executor permits at most two underlying Studionet reads at once. Only transient capacity/network responses are retried, for at most four attempts and within an 8-second retry budget, with exponential backoff and jitter. Deterministic contract, parameter, wallet, and data-shape errors are not retried.
+- **Polling policy:** only the visible tab polls; each next poll is scheduled after the previous load completes, and same-view refreshes are single-flight. A transient polling failure preserves the last successfully validated data.
+- **Balance source:** `get_treasury_state` returns `balance_wei` from the contract's `self.balance`; the frontend validates and renders that value directly instead of issuing a redundant balance RPC.
+- **Honest failure behavior:** retry exhaustion produces an explicit temporary-Studionet error with a manual retry action. There is no hard-coded, simulated, or zero-value fallback.
 
 ## Frontend write path (verified 2026-07-27)
 - **Create write client:** `createClient({ chain: studionet, endpoint: "https://studio.genlayer.com/api", account: accountAddress })` | Source URL: https://docs.genlayer.com/developers/decentralized-applications/writing-data
