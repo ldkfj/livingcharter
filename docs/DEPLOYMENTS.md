@@ -18,9 +18,9 @@ Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690
 | Constructor | `charter_address=0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`, `appeal_window_seconds=300`, `member_cooldown_seconds=60` |
 | Linked contract | Existing Charter `0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`; verify `get_charter_bundle` before deployment and address readback after deployment |
 | Upgrader | None in candidate source |
-| Classification | Proposed `INTENTIONALLY FROZEN`; not authorized until the user explicitly accepts irreversibility |
+| Classification | `INTENTIONALLY FROZEN`; explicitly confirmed by the user on 2026-08-08 with acknowledgement that defects require redeployment |
 | Configuration order | Deploy → source/schema/state readback → fund → live proof matrix → update frontend Production env → deploy frontend → production readback |
-| Deployment wallet | Not yet selected/confirmed for this deployment action |
+| Deployment wallet | Studio deployer A, `0x7885536194BbD6E1D0A6Ab991aB215CFa9542339`; selected by the user. The user will execute the Studio deployment. |
 
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
@@ -28,9 +28,9 @@ The frozen-by-default behavior and its irreversibility are documented by [GenLay
 
 | Contract | Runtime classification | Release decision |
 | --- | --- | --- |
-| Charter `0x0D22...c9DB` | Frozen: no upgrader is registered, so GenVM applies the default post-constructor lock | Historical deployed fact; explicit user confirmation of `INTENTIONALLY FROZEN` is required before the next release |
+| Charter `0x0D22...c9DB` | Frozen: no upgrader is registered, so GenVM applies the default post-constructor lock | `INTENTIONALLY FROZEN`, explicitly confirmed by the user on 2026-08-08 |
 | Treasury v2 `0x99A0...2F16` | Frozen: no upgrader is registered | Historical deployment; to be superseded, not mutated |
-| Treasury v3 candidate | No upgrader in candidate source; deployment would be permanently frozen | Deployment blocked until explicit user confirmation of irreversibility and deployment wallet |
+| Treasury v3 candidate | No upgrader in candidate source; deployment will be permanently frozen | `INTENTIONALLY FROZEN`, confirmed for deployment by Studio deployer A; awaiting the user-executed transaction |
 
 A frozen contract cannot be upgraded or repaired in place. Recovery is: retain the immutable historical address and audit trail; deploy the reviewed source as a new contract with the same Charter/configuration; verify deploy `FINALIZED` plus execution `SUCCESS`; verify deployed-source SHA-256; fund by a new transaction; update `VITE_TREASURY_ADDRESS`; rerun every required live journey; deploy the frontend; and verify chain readback from the production app. If Studionet itself resets, redeploy both contracts, bootstrap the four founding articles, rebuild membership through amendments, and regenerate this record. No private key or local `.secrets/` content belongs in the recovery package.
 
@@ -39,7 +39,7 @@ A frozen contract cannot be upgraded or repaired in place. Recovery is: retain t
 | Review finding | Source change | Automated evidence | Required live evidence |
 | --- | --- | --- | --- |
 | Concurrent requests can overcommit treasury funds | `reserved_wei`, per-request reservation, unreserved-balance admission, exactly-once terminal release | overcommit, FAILED release, payout conservation, replay, and RPC-shape tests | Two wallets reserve up to capacity; the next request is rejected; terminal payout/closure releases capacity |
-| Deployment/recovery classification absent | This section and the README deployment section | documentation consistency review | User freeze confirmation, deploy receipt, source hash, constructor readback, recovery manifest |
+| Deployment/recovery classification absent | This section and the README deployment section | user freeze confirmation recorded; documentation consistency review | Deploy receipt, source hash, constructor readback, final recovery manifest |
 | Terminal/write-path proof incomplete | Proof matrix below | existing state-machine suites | `cancel_amendment`, `REJECTED`, `EXPIRED`, `UNDETERMINED`, `FAILED`, payout, replay/readback |
 | Repo/live revision mismatch | Candidate/live separation in README and this record | pre-push claim scan | v3 address/env, production deployment SHA, HTTP/app readback |
 

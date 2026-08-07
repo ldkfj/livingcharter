@@ -100,7 +100,7 @@ Current candidate results: `51 passed` for `python -m pytest -q`; `99 passed` fo
 5. Fund it: call payable `fund` with a GEN value, then put both addresses in `frontend/.env`.
 6. Add members via `propose_amendment` (kind `3` = ADD_MEMBER) → `vote` → `finalize_amendment`.
 
-Both existing contracts have no upgrader and are therefore frozen under GenVM's default post-constructor lock. The new Treasury deployment remains blocked until the user explicitly confirms the intended frozen classification. A frozen contract cannot be repaired in place: recovery is a source-parity redeployment, state/funding migration by new transactions, frontend environment update, and a fresh proof matrix. See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
+Both contracts are classified `INTENTIONALLY FROZEN`; the user explicitly confirmed the irreversibility decision on 2026-08-08. They have no upgrader and are locked under GenVM's default post-constructor behavior. A frozen contract cannot be repaired in place: recovery is a source-parity redeployment, state/funding migration by new transactions, frontend environment update, and a fresh proof matrix. See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
 
 ## Security and trust boundaries
 
