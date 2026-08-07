@@ -26,6 +26,11 @@ Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690
 | Initial readback | `balance_wei=0`, `reserved_wei=0`, `available_balance_wei=0`, matching Charter address, windows `300/60`, `request_count=0`, `precedent_count=0` |
 | Funding | `fund()` with 1 GEN (`1000000000000000000` wei), tx `0x2cae4e12633a1a830d4055279f96ad32723c8a017fa680911eb89468f989ee86`; `FINALIZED`, leader and quorum participants `SUCCESS`/agree |
 | Funded readback | `balance_wei=1000000000000000000`, `reserved_wei=0`, `available_balance_wei=1000000000000000000`, `request_count=0`, `precedent_count=0` |
+| Reservation setup B | Request #1, 0.6 GEN, tx `0xfe8325af755e473251a9d36bdbdb84629eff62756c99cd8bb65fffc30419176f`; `FINALIZED`, leader `SUCCESS`, quorum agree |
+| Reservation setup C | Request #2, 0.4 GEN, tx `0x74679240a7b018d8082cde96de4b672698c092442ace62ef98c62bd6ff826f20`; `FINALIZED`, leader `SUCCESS`, quorum agree |
+| Reservation readback | `balance_wei=1000000000000000000`, `reserved_wei=1000000000000000000`, `available_balance_wei=0`, `request_count=2`, both requests `SUBMITTED` with active reservations |
+
+Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae61e75475c60fb90ea809036ad57834873cb7668c5a77` finalized with leader `LLM_RATE_LIMITED/ERROR`. It did not add a request and is not counted as successful evidence.
 
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
