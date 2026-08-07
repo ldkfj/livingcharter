@@ -2,15 +2,15 @@
 
 This is the canonical deployment, source-parity, recovery, and live-proof record for LivingCharter.
 
-## Release-candidate status (2026-08-08)
+## Production release status (2026-08-08)
 
 The production application now uses Treasury v3 at `0xa430f80c74cC90a1a75E3906055118e97CdC363b`, with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`). Source parity, the contract live-proof matrix, and production readback are complete below. Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16` remains an immutable historical deployment.
 
-Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
+Deployed Treasury source SHA-256: raw local working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
 
-### Treasury v3 manifest (`POST-DEPLOY`, promotion pending)
+### Treasury v3 manifest (`POST-DEPLOY`, promoted)
 
-| Field | Intended value |
+| Field | Verified value |
 | --- | --- |
 | Network | GenLayer Studionet; chain ID `61999`; RPC `https://studio.genlayer.com/api` |
 | Contract | [`0xa430f80c74cC90a1a75E3906055118e97CdC363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b) |
@@ -54,7 +54,7 @@ Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae6
 | Payout | `0xb813d4de58a3f576010fc2401b9a04ccaab62803587cd6f161e7f07beed3162c` — `FINALIZED/SUCCESS` | `PAID`; balance 1.00 → 0.98 GEN; full 0.02 reservation released |
 | Payout replay | `0x71ea508fb2da9a9bc99e07cf2f6c8ab3924600afa55eb5c5c35336860e9009be` — `FINALIZED/ERROR/E_ALREADY_PAID` | Treasury state unchanged |
 
-### Charter terminal-amendment proof (Treasury v3 release candidate)
+### Charter terminal-amendment proof (Treasury v3 production release)
 
 | Action | Transaction/result | Readback |
 | --- | --- | --- |
@@ -104,25 +104,25 @@ The frozen-by-default behavior and its irreversibility are documented by [GenLay
 | Contract | Runtime classification | Release decision |
 | --- | --- | --- |
 | Charter `0x0D22...c9DB` | Frozen: no upgrader is registered, so GenVM applies the default post-constructor lock | `INTENTIONALLY FROZEN`, explicitly confirmed by the user on 2026-08-08 |
-| Treasury v2 `0x99A0...2F16` | Frozen: no upgrader is registered | Historical deployment; to be superseded, not mutated |
+| Treasury v2 `0x99A0...2F16` | Frozen: no upgrader is registered | Historical deployment; superseded, not mutated |
 | Treasury v3 `0xa430...363b` | No upgrader; permanently frozen after constructor | `INTENTIONALLY FROZEN`, confirmed by the user before the user-executed deployment |
 
 A frozen contract cannot be upgraded or repaired in place. Recovery is: retain the immutable historical address and audit trail; deploy the reviewed source as a new contract with the same Charter/configuration; verify deploy `FINALIZED` plus execution `SUCCESS`; verify deployed-source SHA-256; fund by a new transaction; update `VITE_TREASURY_ADDRESS`; rerun every required live journey; deploy the frontend; and verify chain readback from the production app. If Studionet itself resets, redeploy both contracts, bootstrap the four founding articles, rebuild membership through amendments, and regenerate this record. No private key or local `.secrets/` content belongs in the recovery package.
 
 ### Candidate closure matrix
 
-| Review finding | Source change | Automated evidence | Required live evidence |
+| Closed review finding | Source change | Automated evidence | Live evidence |
 | --- | --- | --- | --- |
-| Concurrent requests can overcommit treasury funds | `reserved_wei`, per-request reservation, unreserved-balance admission, exactly-once terminal release | overcommit, FAILED release, payout conservation, replay, and RPC-shape tests | Two wallets reserve up to capacity; the next request is rejected; terminal payout/closure releases capacity |
-| Deployment/recovery classification absent | This section and the README deployment section | user freeze confirmation recorded; documentation consistency review | Deploy receipt, source hash, constructor readback, final recovery manifest |
-| Terminal/write-path proof incomplete | Proof matrix below | existing state-machine suites | `cancel_amendment`, `REJECTED`, `EXPIRED`, `UNDETERMINED`, `FAILED`, payout, replay/readback |
-| Repo/live revision mismatch | Candidate/live separation in README and this record | pre-push claim scan | v3 address/env, production deployment SHA, HTTP/app readback |
+| Concurrent requests could overcommit treasury funds | `reserved_wei`, per-request reservation, unreserved-balance admission, exactly-once terminal release | overcommit, FAILED release, payout conservation, replay, and RPC-shape tests | Two wallets reserved up to capacity; the next request was rejected; terminal payout/closure released capacity |
+| Deployment/recovery classification was absent | This section and the README deployment section | user freeze confirmation recorded; documentation consistency review | Deploy receipt, source hash, constructor readback, final recovery manifest |
+| Terminal/write-path proof was incomplete | Proof matrix below | existing state-machine suites | `cancel_amendment`, `REJECTED`, `EXPIRED`, `UNDETERMINED`, `FAILED`, payout, replay/readback |
+| Repo/live revision mismatch | Production revision linkage in README and this record | pre-push claim scan | v3 address/env, production deployment revision, HTTP/app readback |
 
 ### Required Treasury v3 proof matrix
 
-Rows marked `COMPLETE` are backed by the transaction hashes and readbacks above. Production parity remains a release blocker until the user authorizes promotion.
+Every row is complete and backed by the transaction hashes and readbacks above.
 
-The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it consumes the existing ignored testnet B/C account file only when the user runs a named step and never prints keys.
+The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; when invoked, it consumes the existing ignored testnet B/C account file and never prints keys.
 
 | Journey | Required proof |
 | --- | --- |
@@ -213,13 +213,13 @@ Spend requests (Treasury v2):
 | adjudicate #5 | C | **APPROVE** — ruling quotes "$139 USD" Student price, cites art. 1 and precedent seq=1 | `0xcf3014bc6dec86b03aee722a55a58888de9e08451e0a4ffedd244e9de16dfd42` |
 | execute_payout #5 → PAID 0.01 GEN to B | C | PAID | `0x7bed2fbc8ce0b53a892bed93832f6c3d60afd3669e0dc5b5e00f25090fca38eb` |
 
-Final on-chain state at submission: balance 0.94 GEN; 5 requests all terminal; 6 precedents; charter v4; 3 members.
+Historical v2 state before v3 promotion: balance 0.94 GEN; 5 requests all terminal; 6 precedents; charter v4; 3 members.
 
-## Final submission instance (decided 2026-07-27)
+## Historical submission instance (decided 2026-07-27; superseded 2026-08-08)
 
-Charter + Treasury v2 above ARE the submission deployment (user-approved) — they carry genuine multi-wallet activity.
+Charter + Treasury v2 above formed the original user-approved submission deployment and retain genuine multi-wallet history. Treasury v3 is the current production and resubmission instance.
 
-## Release (2026-07-27)
+## Historical release (2026-07-27; superseded by the production promotion above)
 
 | Item | Value |
 | --- | --- |

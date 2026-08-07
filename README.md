@@ -6,12 +6,13 @@ A shared treasury governed by a **living charter**: spending rules written in pl
 
 | Item | Value |
 | --- | --- |
+| Live application | [livingcharter.vercel.app](https://livingcharter.vercel.app) |
 | Network | GenLayer Studionet, chain ID `61999`, RPC `https://studio.genlayer.com/api` |
 | Charter contract | [`0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`](https://explorer-studio.genlayer.com/address/0x0D22C5298ad1437DB715A543B485588a8e0fc9DB) |
-| Treasury contract | [`0x99A0b62199b412421c6466E1C60e0C0D220D2F16`](https://explorer-studio.genlayer.com/address/0x99A0b62199b412421c6466E1C60e0C0D220D2F16) |
+| Treasury contract | [`0xa430f80c74cC90a1a75E3906055118e97CdC363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b) |
 | Contract source | [`contracts/charter.py`](contracts/charter.py), [`contracts/treasury.py`](contracts/treasury.py) |
 
-The deployed contracts carry **real multi-wallet usage**, not a single demo transaction: 5 spend requests covering all three verdicts, one appeal adjudicated and upheld, three ratified amendments, and 6 precedents - including the living-charter moment where a team-dinner request denied under charter v3 is partially approved under the amended article at charter v4. Every transaction hash is recorded in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md); all are `FINALIZED` with execution `SUCCESS`. (An earlier Treasury instance at `0xB984B0a79B9BC17C332017B0640Dc82eE6151393` holds two additional authentic denials from before an evidence-rendering fix - evidence strictness working as designed.)
+Treasury v3 carries **real multi-wallet usage**, not a single demo transaction: 5 spend requests covering `FAILED`, `APPROVE` plus appeal, `DENY`, and `PARTIAL`; 4 precedents; full, partial, and zero-value terminal paths; and replay guards. The shared Charter records three ratified amendments plus live `CANCELLED`, `REJECTED`, and `EXPIRED` proofs. The historical v2 journey also records the living-charter differential: a team dinner denied under the original article was partially approved after members amended its policy. Every successful state transition and expected guard failure is recorded with its finalized transaction result in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
@@ -89,7 +90,7 @@ The app refuses to start if either address is missing or looks like a placeholde
 
 ## Tests and verification
 
-Current candidate results: `51 passed` for `python -m pytest -q`; `99 passed` for `npx vitest run`; `npx tsc --noEmit` clean; `npm run build` clean apart from Vite's existing chunk-size advisory. Both contracts must also pass `powershell -ExecutionPolicy Bypass -File scripts/lint.ps1` before deployment. Exact release evidence, source hashes, transaction hashes, and the outstanding live-proof rows are maintained in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
+Current verified results: `51 passed` for `python -m pytest -q`; `99 passed` for `npx vitest run`; `npx tsc --noEmit` clean; `npm run build` clean apart from Vite's existing chunk-size advisory. Both contracts pass `powershell -ExecutionPolicy Bypass -File scripts/lint.ps1`. Exact release evidence, source hashes, transaction hashes, and the completed live-proof matrix are maintained in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
 
 ## Deployment and recovery
 
@@ -112,7 +113,6 @@ Both contracts are classified `INTENTIONALLY FROZEN`; the user explicitly confir
 
 ## Known limitations
 
-- The current live Treasury v2 predates reservation accounting; the repository candidate must not be represented as deployed until Treasury v3 evidence is complete.
 - Frozen contracts cannot be upgraded or recovered in place.
 - Evidence is limited to the rendered text window, and public pages can change or become unavailable.
 - Studionet is a shared development environment and can temporarily exhaust execution capacity.
