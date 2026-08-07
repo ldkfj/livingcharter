@@ -32,6 +32,17 @@ Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690
 
 Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae61e75475c60fb90ea809036ad57834873cb7668c5a77` finalized with leader `LLM_RATE_LIMITED/ERROR`. It did not add a request and is not counted as successful evidence.
 
+### Treasury v3 reservation and infrastructure-failure proof
+
+| Action | Transaction/result | Readback |
+| --- | --- | --- |
+| Aggregate overcommit after B+C reserved the full 1 GEN | `0x17120f816687bbb5368114b53f030ef0bf79c51a71c6e6bd883cf7d846512baa` — `FINALIZED/ERROR/E_INVALID_AMOUNT` | Treasury state byte-for-byte unchanged: balance/reserved 1 GEN, available 0, request count 2 |
+| Request #1 first all-evidence failure | `0x37296de50ca63b5434291abef4125afcb4becb4ac949e065dede953befdda7f9` — `FINALIZED/SUCCESS` | `UNDETERMINED`, retries 1, 0.6 GEN reservation retained, no ruling/precedent |
+| Request #1 second all-evidence failure | `0xd91cb94d21fbe0a7c37e9a8b32b73c33d22cd152a64fb8079f67c2a913786b40` — `FINALIZED/SUCCESS` | `FAILED`, reservation released; treasury reserved 0.4 GEN, available 0.6 GEN |
+| Request #2 first all-evidence failure | `0x6e76afaf1027f170aad17e18f7cef548750f586de15d781fdc9408dd27d1f1a7` — `FINALIZED/SUCCESS` | `UNDETERMINED`, retries 1, 0.4 GEN reservation retained, no ruling/precedent |
+| Request #2 second all-evidence failure | `0xef38c067459e5854524774a62d653050e840cfa2ae1e275e8e723d2f35b15e7c` — `FINALIZED/SUCCESS` | `FAILED`, reservation released; balance/available 1 GEN, reserved 0, precedents 0 |
+| Replay adjudication of FAILED request #1 | `0x6d5a5d6c7b88a805f16053d7fc1a76d41f9ebdf5795f4ad6515687a394451103` — `FINALIZED/ERROR/E_BAD_STATE` | Treasury state unchanged |
+
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
 ### Deployment classification and recovery
@@ -62,9 +73,9 @@ The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it
 | Journey | Required proof |
 | --- | --- |
 | Deployment parity | **COMPLETE** — deploy tx, constructor `Charter/300/60`, 10-method schema, exact deployed-source SHA-256, and zero-state readback verified by Codex RPC checks |
-| Reservation overcommit | Successful reservations from separate members, rejected aggregate-overcommit tx, unchanged state readback |
+| Reservation overcommit | **COMPLETE** — B+C successful reservations, rejected aggregate-overcommit tx `0x17120f...2baa`, unchanged state readback |
 | Reservation conservation | Partial/full/zero payout as applicable, released reservation, exact balance delta, replay rejected |
-| Infrastructure ladder | Authentic all-evidence-unavailable adjudications showing `UNDETERMINED` then `FAILED`, no DENY precedent, reservation released |
+| Infrastructure ladder | **COMPLETE** — requests #1/#2 each show `UNDETERMINED → FAILED`; no ruling or precedent; reservations fully released; FAILED replay rejected |
 | Amendment cancellation | `cancel_amendment` tx and `CANCELLED` readback |
 | Amendment rejection | Voting/finalization txs and `REJECTED` readback |
 | Amendment expiration | Deadline/finalization tx and `EXPIRED` readback |

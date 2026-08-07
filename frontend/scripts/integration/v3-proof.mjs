@@ -182,11 +182,19 @@ if (step === "reserve") {
   assertState(failed.reservation_active === false, "FAILED must release reservation");
   console.log(`failed state: ${json(failed)}`);
   console.log(`treasury: ${json(await view("get_treasury_state"))}`);
+} else if (step === "replay") {
+  const before = await view("get_treasury_state");
+  const request = await view("get_request", [1]);
+  assertState(request.state_name === "FAILED", "request 1 must already be FAILED");
+  await writeExpectedError("B", "adjudicate_request", [1], "E_BAD_STATE");
+  const after = await view("get_treasury_state");
+  assertState(json(after) === json(before), "FAILED replay must leave treasury state unchanged");
+  console.log(`unchanged state: ${json(after)}`);
 } else if (step === "state") {
   console.log(`treasury: ${json(await view("get_treasury_state"))}`);
   console.log(`request 1: ${json(await view("get_request", [1]))}`);
   console.log(`request 2: ${json(await view("get_request", [2]))}`);
   console.log(`precedents: ${json(await view("get_precedents", [0, 10]))}`);
 } else {
-  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|reserve-c|overcommit|fail-b|fail-c|state>");
+  console.log("Usage: node scripts/integration/v3-proof.mjs <reserve|reserve-c|overcommit|fail-b|fail-c|replay|state>");
 }
