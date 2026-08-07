@@ -33,7 +33,7 @@ async function write(who, address, functionName, args, valueWei = 0n, retries = 
   const c = clientFor(who);
   const hash = await c.writeContract({ address, functionName, args, value: valueWei });
   process.stdout.write(`  ${who} -> ${functionName}(${JSON.stringify(args, (k,v) => typeof v === "bigint" ? v.toString() : v).slice(0, 90)}) tx=${hash} ...`);
-  const receipt = await c.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 3000, retries });
+  const receipt = await c.waitForTransactionReceipt({ hash, status: "FINALIZED", interval: 20000, retries });
   const res = execResult(receipt);
   const status = receipt?.statusName ?? receipt?.status;
   console.log(` [${status}/${res}]`);
@@ -172,6 +172,77 @@ const steps = {
     dump("request 4:", await view(TREASURY, "get_request", [4]));
   },
 
+  // Live terminal-state proof on the unchanged Charter: CANCELLED, REJECTED, EXPIRED.
+  async v3terminalsetup() {
+    let counts = await view(CHARTER, "get_counts");
+    if (counts.charter_version !== 4 || counts.amendments < 3 || counts.amendments > 6) {
+      throw new Error(`Unexpected Charter baseline: ${JSON.stringify(counts)}`);
+    }
+
+    if (counts.amendments === 3) {
+      await write("B", CHARTER, "propose_amendment", [0, 0,
+        "Cancelled proof article: this valid draft must never become active charter text.",
+        "0x0000000000000000000000000000000000000000",
+        "Live proof of proposer cancellation before any vote.",
+      ]);
+    }
+    let cancelled = await view(CHARTER, "get_amendment", [4]);
+    if (cancelled.state_name === "PROPOSED") {
+      await write("B", CHARTER, "cancel_amendment", [4]);
+      cancelled = await view(CHARTER, "get_amendment", [4]);
+    }
+    if (cancelled.state_name !== "CANCELLED") throw new Error("Amendment 4 must be CANCELLED.");
+
+    counts = await view(CHARTER, "get_counts");
+    if (counts.amendments === 4) {
+      await write("B", CHARTER, "propose_amendment", [0, 0,
+        "Rejected proof article: this tied-vote draft must never become active charter text.",
+        "0x0000000000000000000000000000000000000000",
+        "Live proof of rejection after a tied vote and deadline.",
+      ]);
+    }
+    let rejected = await view(CHARTER, "get_amendment", [5]);
+    if (rejected.yes === 0) await write("B", CHARTER, "vote", [5, true]);
+    rejected = await view(CHARTER, "get_amendment", [5]);
+    if (rejected.no === 0) await write("C", CHARTER, "vote", [5, false]);
+
+    counts = await view(CHARTER, "get_counts");
+    if (counts.amendments === 5) {
+      await write("C", CHARTER, "propose_amendment", [0, 0,
+        "Expired proof article: this unvoted draft must never become active charter text.",
+        "0x0000000000000000000000000000000000000000",
+        "Live proof of expiration with zero votes after the deadline.",
+      ]);
+    }
+
+    dump("amendment 4:", await view(CHARTER, "get_amendment", [4]));
+    dump("amendment 5:", await view(CHARTER, "get_amendment", [5]));
+    dump("amendment 6:", await view(CHARTER, "get_amendment", [6]));
+    dump("counts:", await view(CHARTER, "get_counts"));
+  },
+
+  async v3terminalfinalize() {
+    const rejected = await view(CHARTER, "get_amendment", [5]);
+    const expired = await view(CHARTER, "get_amendment", [6]);
+    const remaining = Math.max(rejected.deadline, expired.deadline) - Math.floor(Date.now() / 1000);
+    if (remaining > 0) throw new Error(`Voting deadline has not passed; retry in ${remaining + 2} seconds.`);
+
+    await write("B", CHARTER, "finalize_amendment", [5]);
+    await write("C", CHARTER, "finalize_amendment", [6]);
+    const afterRejected = await view(CHARTER, "get_amendment", [5]);
+    const afterExpired = await view(CHARTER, "get_amendment", [6]);
+    const counts = await view(CHARTER, "get_counts");
+    if (afterRejected.state_name !== "REJECTED" || afterExpired.state_name !== "EXPIRED") {
+      throw new Error("Terminal amendment states do not match REJECTED/EXPIRED.");
+    }
+    if (counts.charter_version !== 4 || counts.articles !== 4) {
+      throw new Error("Terminal proof must not change charter version or active article count.");
+    }
+    dump("amendment 5:", afterRejected);
+    dump("amendment 6:", afterExpired);
+    dump("counts:", counts);
+  },
+
   // Final payout + full state dump
   async step10() {
     const req = await view(TREASURY, "get_request", [4]);
@@ -192,5 +263,3 @@ if (!steps[step]) {
   process.exit(1);
 }
 await steps[step]();
-
-

@@ -69,7 +69,7 @@ async function write(who, functionName, args) {
   const receipt = await client.waitForTransactionReceipt({
     hash,
     status: "FINALIZED",
-    interval: 8_000,
+    interval: 20_000,
     retries: 400,
   });
   const result = executionResult(receipt);
@@ -89,7 +89,7 @@ async function writeExpectedError(who, functionName, args, expectedCode) {
   const receipt = await client.waitForTransactionReceipt({
     hash,
     status: "FINALIZED",
-    interval: 8_000,
+    interval: 20_000,
     retries: 240,
   });
   const result = executionResult(receipt);
