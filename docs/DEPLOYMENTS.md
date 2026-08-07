@@ -24,6 +24,8 @@ Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690
 | Configuration order | Deploy → source/schema/state readback → fund → live proof matrix → update frontend Production env → deploy frontend → production readback |
 | Deployment wallet | Studio deployer A, `0x7885536194BbD6E1D0A6Ab991aB215CFa9542339`; selected and operated by the user |
 | Initial readback | `balance_wei=0`, `reserved_wei=0`, `available_balance_wei=0`, matching Charter address, windows `300/60`, `request_count=0`, `precedent_count=0` |
+| Funding | `fund()` with 1 GEN (`1000000000000000000` wei), tx `0x2cae4e12633a1a830d4055279f96ad32723c8a017fa680911eb89468f989ee86`; `FINALIZED`, leader and quorum participants `SUCCESS`/agree |
+| Funded readback | `balance_wei=1000000000000000000`, `reserved_wei=0`, `available_balance_wei=1000000000000000000`, `request_count=0`, `precedent_count=0` |
 
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
@@ -49,6 +51,8 @@ A frozen contract cannot be upgraded or repaired in place. Recovery is: retain t
 ### Required Treasury v3 proof matrix
 
 These rows are intentionally `PENDING`; they are release blockers, not claims of completed evidence.
+
+The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it consumes the existing ignored testnet B/C account file only when the user runs a named step and never prints keys.
 
 | Journey | Required proof |
 | --- | --- |
