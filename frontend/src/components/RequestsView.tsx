@@ -361,6 +361,12 @@ export const RequestsView: React.FC<RequestsViewProps> = ({
                   </span>
                 </div>
 
+                <div style={{ fontSize: "0.82rem", color: selectedReq.reservation_active ? "var(--accent-amber)" : "var(--text-muted)" }}>
+                  {selectedReq.reservation_active
+                    ? `${formatWeiToGen(selectedReq.reserved_amount_wei)} GEN reserved for this request`
+                    : "Reservation released at terminal state"}
+                </div>
+
                 <div>
                   <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Purpose Statement</span>
                   <p style={{ marginTop: "0.25rem", color: "var(--text-primary)", background: "rgba(255,255,255,0.02)", padding: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-subtle)" }}>

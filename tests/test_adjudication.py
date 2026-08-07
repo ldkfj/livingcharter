@@ -113,6 +113,9 @@ def test_partial_tolerance_boundary(treasury):
 
     req2 = json.loads(treasury.get_request(rid2))
     assert req2["state_name"] == "SUBMITTED"  # State untouched on consensus rejection!
+    assert req2["reservation_active"] is True
+    assert req2["reserved_amount_wei"] == 1000
+    assert treasury.reserved_wei == 2000
 
 
 def test_decision_mismatch_and_retry(treasury):
@@ -286,6 +289,9 @@ def test_all_evidence_unavailable_uses_shared_failure_ladder(treasury):
     assert second["initial_ruling"] is None
     assert second["appeal_ruling"] is None
     assert treasury.precedent_count == 0
+    assert second["reservation_active"] is False
+    assert second["reserved_amount_wei"] == 0
+    assert treasury.reserved_wei == 0
 
 
 def test_initial_retry_reset_and_appeal_retry_preserves_context(treasury):
@@ -344,11 +350,15 @@ def test_two_appeal_failures_finalize_with_initial_ruling_and_allow_payout(treas
     assert result["appeal_ruling"] is None
     assert result["initial_ruling"]["approved_amount_wei"] == 400
     assert treasury.precedent_count == 1
+    assert result["reservation_active"] is True
+    assert treasury.reserved_wei == 1000
 
     treasury.execute_payout(rid)
     paid = json.loads(treasury.get_request(rid))
     assert paid["state_name"] == "PAID"
     assert treasury._mock_transfers == [(Address(DEPLOYER), 400)]
+    assert paid["reservation_active"] is False
+    assert treasury.reserved_wei == 0
 
 
 @pytest.mark.parametrize(

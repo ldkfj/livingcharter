@@ -70,6 +70,8 @@ describe("contractService validated read boundary", () => {
     readContractSpy.mockResolvedValue(
       JSON.stringify({
         balance_wei: "900719925474099312345",
+        reserved_wei: "1",
+        available_balance_wei: "900719925474099312344",
         charter_address: ADDRESS,
         appeal_window_seconds: 300,
         member_cooldown_seconds: 60,
@@ -80,6 +82,8 @@ describe("contractService validated read boundary", () => {
 
     await expect(contractService.getTreasuryState(ADDRESS)).resolves.toMatchObject({
       balance_wei: 900719925474099312345n,
+      reserved_wei: 1n,
+      available_balance_wei: 900719925474099312344n,
     });
     expect(readContractSpy).toHaveBeenCalledTimes(1);
   });

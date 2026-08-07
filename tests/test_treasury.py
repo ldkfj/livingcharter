@@ -104,6 +104,84 @@ def test_submit_request_happy_path_and_guards(treasury):
     assert rid2 == 2
 
 
+def test_reservations_prevent_overcommit_and_release_on_terminal_paths(treasury):
+    treasury._mock_balance[0] = 1000
+
+    set_sender(DEPLOYER)
+    first = treasury.submit_request(
+        600,
+        "Conference ticket reimbursement claim",
+        "https://conf.org/ticket",
+    )
+    assert treasury.reserved_wei == 600
+    assert treasury._available_balance() == 400
+
+    set_sender(MEMBER_2)
+    with pytest.raises(Exception, match="E_INVALID_AMOUNT"):
+        treasury.submit_request(
+            401,
+            "Hardware purchase reimbursement claim",
+            "https://vendor.example/item",
+        )
+
+    second = treasury.submit_request(
+        400,
+        "Hardware purchase reimbursement claim",
+        "https://vendor.example/item",
+    )
+    assert treasury.reserved_wei == 1000
+    assert treasury._available_balance() == 0
+
+    treasury._mark_undetermined(first, False)
+    treasury._mark_undetermined(first, False)
+    assert treasury.requests[first].state == REQ_FAILED
+    assert treasury.requests[first].reservation_active is False
+    assert treasury.reserved_wei == 400
+    assert treasury._available_balance() == 600
+
+    treasury._release_reservation(treasury.requests[first])
+    assert treasury.reserved_wei == 400
+
+    treasury._apply_ruling(second, DECISION_DENY, 0, "[3]", 1, "Denied", False)
+    treasury._mock_time[0] += 601
+    treasury.execute_payout(second)
+    assert treasury.requests[second].state == REQ_CLOSED
+    assert treasury.reserved_wei == 0
+    assert treasury._available_balance() == 1000
+
+
+def test_partial_payout_conserves_balance_and_releases_full_reservation(treasury):
+    treasury._mock_balance[0] = 1000
+    set_sender(DEPLOYER)
+    rid = treasury.submit_request(
+        600,
+        "Hardware purchase reimbursement claim",
+        "https://vendor.example/item",
+    )
+    treasury._apply_ruling(
+        rid,
+        DECISION_PARTIAL,
+        200,
+        "[2]",
+        1,
+        "Partial reimbursement",
+        False,
+    )
+
+    treasury._mock_time[0] += 601
+    treasury.execute_payout(rid)
+
+    assert treasury._mock_balance[0] == 800
+    assert treasury.reserved_wei == 0
+    assert treasury._available_balance() == 800
+    assert treasury.requests[rid].reservation_active is False
+
+    with pytest.raises(Exception, match="E_ALREADY_PAID"):
+        treasury.execute_payout(rid)
+    assert treasury._mock_balance[0] == 800
+    assert treasury.reserved_wei == 0
+
+
 def test_apply_ruling_happy_paths_and_violations(treasury):
     set_sender(DEPLOYER)
     rid = treasury.submit_request(1000, "Hardware purchase reimbursement claim", "https://vendor.com/laptop")
@@ -322,10 +400,16 @@ def test_views_and_state_summary(treasury):
     state = json.loads(treasury.get_treasury_state())
     assert state["charter_address"] == ("0x" + "a" * 40).lower()
     assert state["balance_wei"] == treasury._mock_balance[0]
+    assert state["reserved_wei"] == 300
+    assert state["available_balance_wei"] == treasury._mock_balance[0] - 300
     assert state["appeal_window_seconds"] == 600
     assert state["member_cooldown_seconds"] == 300
     assert state["request_count"] == 1
     assert state["precedent_count"] == 0
+
+    request = json.loads(treasury.get_request(rid))
+    assert request["reservation_active"] is True
+    assert request["reserved_amount_wei"] == 300
 
     # get_precedent_count
     assert json.loads(treasury.get_precedent_count()) == 0

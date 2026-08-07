@@ -35,7 +35,7 @@ Constants:
 Error Codes:
     E_ZERO_FUNDING — Funding value must be greater than zero
     E_NOT_MEMBER — Caller is not an active Charter member
-    E_INVALID_AMOUNT — Requested amount must be > 0 and <= contract balance
+    E_INVALID_AMOUNT — Requested amount must be > 0 and <= unreserved contract balance
     E_INVALID_PURPOSE — Purpose length must be between 10 and 600 characters
     E_NO_EVIDENCE — At least one evidence URL must be provided
     E_INVALID_EVIDENCE_URL — Evidence URL is malformed, too long (>300), or contains credentials
@@ -52,6 +52,7 @@ Error Codes:
     E_NOT_PAYABLE — Request is not eligible for payout or closure
     E_ALREADY_PAID — Payout has already been executed for this request
     E_INSUFFICIENT_BALANCE — Contract balance is insufficient for payout
+    E_RESERVATION_INVARIANT — Stored reservations are inconsistent
 """
 
 from dataclasses import dataclass
@@ -125,6 +126,7 @@ class RequestRec:
     appellant: Address
     appeal_argument: str
     paid: bool
+    reservation_active: bool
 
 
 @allow_storage
@@ -345,6 +347,7 @@ class Treasury(gl.Contract):
     appeal_rulings: TreeMap[u32, RulingRec]
     precedents: DynArray[PrecedentRec]
     precedent_count: u32
+    reserved_wei: u256
     last_request_at: TreeMap[Address, u64]
     open_request: TreeMap[Address, u32]
 
@@ -359,6 +362,7 @@ class Treasury(gl.Contract):
         self.member_cooldown_seconds = member_cooldown_seconds
         self.request_count = 0
         self.precedent_count = 0
+        self.reserved_wei = u256(0)
 
     def _now(self) -> int:
         """Internal timestamp helper using deterministic transaction timestamp."""
@@ -380,6 +384,22 @@ class Treasury(gl.Contract):
     def _balance(self) -> int:
         """Internal contract native balance helper."""
         return int(self.balance)
+
+    def _available_balance(self) -> int:
+        """Native balance not already reserved for open spend requests."""
+        balance = self._balance()
+        reserved = int(self.reserved_wei)
+        return balance - reserved if balance >= reserved else 0
+
+    def _release_reservation(self, req: RequestRec) -> None:
+        """Release a request's maximum liability exactly once."""
+        if not req.reservation_active:
+            return
+        amount = int(req.amount_wei)
+        if amount > int(self.reserved_wei):
+            raise Exception("E_RESERVATION_INVARIANT")
+        self.reserved_wei = u256(int(self.reserved_wei) - amount)
+        req.reservation_active = False
 
     def _transfer(self, to: Address, amount_wei: int) -> None:
         """Internal native GEN transfer helper to EOA/wallet recipient."""
@@ -405,7 +425,7 @@ class Treasury(gl.Contract):
         if not self._is_active_member(caller):
             raise Exception("E_NOT_MEMBER")
 
-        if not (0 < amount_wei <= self._balance()):
+        if not (0 < amount_wei <= self._available_balance()):
             raise Exception("E_INVALID_AMOUNT")
 
         if not (10 <= len(purpose) <= 600):
@@ -456,8 +476,10 @@ class Treasury(gl.Contract):
             appellant=Address("0x" + "0" * 40),
             appeal_argument="",
             paid=False,
+            reservation_active=True,
         )
 
+        self.reserved_wei = u256(int(self.reserved_wei) + amount_wei)
         self.open_request[caller] = rid
         self.last_request_at[caller] = now
         return rid
@@ -684,6 +706,7 @@ class Treasury(gl.Contract):
                 req.state = REQ_UNDETERMINED
             else:
                 req.state = REQ_FAILED
+                self._release_reservation(req)
                 self.open_request[req.requester] = 0
 
     @gl.public.write
@@ -746,6 +769,7 @@ class Treasury(gl.Contract):
         else:
             req.state = REQ_CLOSED
 
+        self._release_reservation(req)
         self.open_request[req.requester] = 0
 
     @gl.public.view
@@ -800,6 +824,8 @@ class Treasury(gl.Contract):
             "appellant": app_hex,
             "appeal_argument": req.appeal_argument,
             "paid": req.paid,
+            "reserved_amount_wei": req.amount_wei if req.reservation_active else 0,
+            "reservation_active": req.reservation_active,
             "initial_ruling": init_r,
             "appeal_ruling": app_r,
         }
@@ -845,6 +871,8 @@ class Treasury(gl.Contract):
         charter_hex = self.charter_address.as_hex if hasattr(self.charter_address, "as_hex") else str(self.charter_address)
         res = {
             "balance_wei": int(self.balance),
+            "reserved_wei": int(self.reserved_wei),
+            "available_balance_wei": self._available_balance(),
             "charter_address": charter_hex,
             "appeal_window_seconds": self.appeal_window_seconds,
             "member_cooldown_seconds": self.member_cooldown_seconds,

@@ -53,6 +53,8 @@ export interface RequestInfo {
   appellant: string;
   appeal_argument: string;
   paid: boolean;
+  reserved_amount_wei: bigint;
+  reservation_active: boolean;
   initial_ruling: RulingInfo | null;
   appeal_ruling: RulingInfo | null;
 }
@@ -78,6 +80,8 @@ export interface TreasuryState {
   request_count: number;
   precedent_count: number;
   balance_wei: bigint;
+  reserved_wei: bigint;
+  available_balance_wei: bigint;
 }
 
 export interface AmendmentInfo {

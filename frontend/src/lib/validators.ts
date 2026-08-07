@@ -280,7 +280,7 @@ function validateNullableRuling(value: unknown, path: string): RulingInfo | null
 export function validateRequest(value: unknown): RequestInfo {
   const view = "get_request";
   const result = expectRecord(value, view);
-  return {
+  const request: RequestInfo = {
     id: expectInteger(expectField(result, "id", view), view, "result.id"),
     requester: expectAddress(
       expectField(result, "requester", view),
@@ -328,6 +328,16 @@ export function validateRequest(value: unknown): RequestInfo {
       "result.appeal_argument",
     ),
     paid: expectBoolean(expectField(result, "paid", view), view, "result.paid"),
+    reserved_amount_wei: expectWei(
+      expectField(result, "reserved_amount_wei", view),
+      view,
+      "result.reserved_amount_wei",
+    ),
+    reservation_active: expectBoolean(
+      expectField(result, "reservation_active", view),
+      view,
+      "result.reservation_active",
+    ),
     initial_ruling: validateNullableRuling(
       expectField(result, "initial_ruling", view),
       "result.initial_ruling",
@@ -337,6 +347,16 @@ export function validateRequest(value: unknown): RequestInfo {
       "result.appeal_ruling",
     ),
   };
+
+  const expectedReservation = request.reservation_active ? request.amount_wei : 0n;
+  if (request.reserved_amount_wei !== expectedReservation) {
+    shapeError(
+      view,
+      "result.reserved_amount_wei must equal amount_wei while active and zero after release.",
+    );
+  }
+
+  return request;
 }
 
 export function validatePrecedentsPage(value: unknown): PrecedentInfo[] {
@@ -409,11 +429,21 @@ export function validatePrecedentsPage(value: unknown): PrecedentInfo[] {
 export function validateTreasuryState(value: unknown): TreasuryState {
   const view = "get_treasury_state";
   const result = expectRecord(value, view);
-  return {
+  const state: TreasuryState = {
     balance_wei: expectWei(
       expectField(result, "balance_wei", view),
       view,
       "result.balance_wei",
+    ),
+    reserved_wei: expectWei(
+      expectField(result, "reserved_wei", view),
+      view,
+      "result.reserved_wei",
+    ),
+    available_balance_wei: expectWei(
+      expectField(result, "available_balance_wei", view),
+      view,
+      "result.available_balance_wei",
     ),
     charter_address: expectAddress(
       expectField(result, "charter_address", view),
@@ -441,6 +471,18 @@ export function validateTreasuryState(value: unknown): TreasuryState {
       "result.precedent_count",
     ),
   };
+
+  if (state.reserved_wei > state.balance_wei) {
+    shapeError(view, "result.reserved_wei cannot exceed result.balance_wei.");
+  }
+  if (state.available_balance_wei !== state.balance_wei - state.reserved_wei) {
+    shapeError(
+      view,
+      "result.available_balance_wei must equal balance_wei minus reserved_wei.",
+    );
+  }
+
+  return state;
 }
 
 export function validateScalarCount(value: unknown, view: string): number {
@@ -492,12 +534,12 @@ export function validateFundAmount(genStr: string): string | null {
 
 export function validateRequestAmount(
   genStr: string,
-  treasuryBalanceWei: bigint,
+  availableBalanceWei: bigint,
 ): string | null {
   try {
     const wei = parseGenToWei(genStr);
-    if (wei <= 0n || wei > treasuryBalanceWei) {
-      return "E_INVALID_AMOUNT: Request amount must be greater than 0 and no more than the current Treasury balance.";
+    if (wei <= 0n || wei > availableBalanceWei) {
+      return "E_INVALID_AMOUNT: Request amount must be greater than 0 and no more than the unreserved Treasury balance.";
     }
     return null;
   } catch (err: any) {

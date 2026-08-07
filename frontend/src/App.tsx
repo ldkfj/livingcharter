@@ -289,7 +289,7 @@ export const App: React.FC = () => {
         onSubmitRequest={handleSubmitRequest}
         isExecuting={isExecuting}
         connectedAccount={connectedAccount}
-        treasuryBalanceWei={dashboardState.data?.treasuryState.balance_wei ?? null}
+        treasuryAvailableBalanceWei={dashboardState.data?.treasuryState.available_balance_wei ?? null}
       />
 
       <ProposeAmendmentModal

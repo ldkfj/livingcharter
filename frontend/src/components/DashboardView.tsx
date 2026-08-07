@@ -84,6 +84,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const { charterBundle, charterCounts, treasuryState } = data;
   const genBalance = formatWeiToGen(treasuryState.balance_wei);
+  const reservedBalance = formatWeiToGen(treasuryState.reserved_wei);
+  const availableBalance = formatWeiToGen(treasuryState.available_balance_wei);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -164,6 +166,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="stat-info">
             <div className="stat-value">{genBalance} GEN</div>
             <div className="stat-label">Treasury Balance</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: "rgba(245, 158, 11, 0.12)", color: "var(--accent-amber)" }}>
+            <Coins size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{reservedBalance} GEN</div>
+            <div className="stat-label">Reserved for Requests</div>
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="stat-icon" style={{ background: "rgba(6, 182, 212, 0.12)", color: "var(--accent-cyan)" }}>
+            <Coins size={24} />
+          </div>
+          <div className="stat-info">
+            <div className="stat-value">{availableBalance} GEN</div>
+            <div className="stat-label">Available to Reserve</div>
           </div>
         </div>
 

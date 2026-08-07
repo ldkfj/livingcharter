@@ -14,7 +14,7 @@ interface NewRequestModalProps {
   onSubmitRequest: (amountWei: bigint, purpose: string, url1: string, url2: string, url3: string) => Promise<WriteResult>;
   isExecuting: boolean;
   connectedAccount: string | null;
-  treasuryBalanceWei: bigint | null;
+  treasuryAvailableBalanceWei: bigint | null;
 }
 
 export const NewRequestModal: React.FC<NewRequestModalProps> = ({
@@ -23,7 +23,7 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
   onSubmitRequest,
   isExecuting,
   connectedAccount,
-  treasuryBalanceWei,
+  treasuryAvailableBalanceWei,
 }) => {
   const [amountStr, setAmountStr] = useState("0.05");
   const [purpose, setPurpose] = useState("");
@@ -69,9 +69,9 @@ export const NewRequestModal: React.FC<NewRequestModalProps> = ({
 
     // 1. Validate Amount
     const amtErr =
-      treasuryBalanceWei === null
-        ? "E_BALANCE_UNAVAILABLE: Treasury balance is not available. Retry the dashboard read before submitting."
-        : validateRequestAmount(amountStr, treasuryBalanceWei);
+      treasuryAvailableBalanceWei === null
+        ? "E_BALANCE_UNAVAILABLE: Available Treasury balance is not available. Retry the dashboard read before submitting."
+        : validateRequestAmount(amountStr, treasuryAvailableBalanceWei);
     if (amtErr) {
       setFormError(amtErr);
       if (amountRef.current) amountRef.current.focus();

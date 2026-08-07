@@ -34,6 +34,8 @@ function requestFixture(
     appellant: "",
     appeal_argument: "",
     paid: false,
+    reserved_amount_wei: 100n,
+    reservation_active: true,
     initial_ruling: initialRuling,
     appeal_ruling: null,
     ...overrides,

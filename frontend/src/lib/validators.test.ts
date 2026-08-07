@@ -79,6 +79,8 @@ const validRequest = {
   appellant: OTHER_ADDRESS,
   appeal_argument: "",
   paid: false,
+  reserved_amount_wei: LARGE_WEI,
+  reservation_active: true,
   initial_ruling: validRuling,
   appeal_ruling: null,
 };
@@ -99,6 +101,8 @@ const validPrecedent = {
 
 const validTreasuryState = {
   balance_wei: LARGE_WEI,
+  reserved_wei: 1n,
+  available_balance_wei: LARGE_WEI - 1n,
   charter_address: ADDRESS,
   appeal_window_seconds: 300,
   member_cooldown_seconds: 60,
@@ -237,6 +241,15 @@ describe("validateTreasuryState", () => {
       validateTreasuryState({ ...validTreasuryState, balance_wei: Number(LARGE_WEI) }),
     );
   });
+
+  it("rejects inconsistent reservation accounting", () => {
+    expectShapeError(() =>
+      validateTreasuryState({ ...validTreasuryState, reserved_wei: LARGE_WEI + 1n }),
+    );
+    expectShapeError(() =>
+      validateTreasuryState({ ...validTreasuryState, available_balance_wei: LARGE_WEI }),
+    );
+  });
 });
 
 describe("validateRequest", () => {
@@ -255,6 +268,19 @@ describe("validateRequest", () => {
 
   it("rejects an out-of-range request state", () => {
     expectShapeError(() => validateRequest({ ...validRequest, state: 9 }));
+  });
+
+  it("rejects inconsistent per-request reservation fields", () => {
+    expectShapeError(() =>
+      validateRequest({ ...validRequest, reserved_amount_wei: 0n }),
+    );
+    expectShapeError(() =>
+      validateRequest({
+        ...validRequest,
+        reservation_active: false,
+        reserved_amount_wei: validRequest.amount_wei,
+      }),
+    );
   });
 
   it("rejects an out-of-range nested decision and non-bigint nested wei", () => {

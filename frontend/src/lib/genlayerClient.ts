@@ -26,6 +26,9 @@ const WEI_FIELDS = new Set([
   "requested_wei",
   "approved_wei",
   "balance_wei",
+  "reserved_amount_wei",
+  "reserved_wei",
+  "available_balance_wei",
 ]);
 
 export function parseContractJson(rawResult: string): unknown {
