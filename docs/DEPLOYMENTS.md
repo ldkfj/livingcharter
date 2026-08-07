@@ -4,7 +4,7 @@ This is the canonical deployment, source-parity, recovery, and live-proof record
 
 ## Release-candidate status (2026-08-08)
 
-The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed and funded with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`), and its source parity is verified below. It has not been promoted to the frontend or claimed as the submission instance. Push, production deployment, and resubmission remain blocked until the remaining proof matrix is complete.
+The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed and funded with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`); source parity and the contract live-proof matrix are complete below. It has not been promoted to the frontend or claimed as the submission instance. Push, production deployment, and resubmission remain blocked pending user authorization and production-parity verification.
 
 Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
 
@@ -62,7 +62,25 @@ Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae6
 | Propose tied-vote amendment #5 | `0xca5f9ff23134e85b6802a9a946fa826b5f12ccfe9eaa64521b1191461a628418` — `FINALIZED/SUCCESS` | Amendment #5 created |
 | Vote yes on amendment #5 | `0x710bd1cea4967e18495b1c13f2fcac319a3f8b857a44f26491b03803f81b48f8` — `FINALIZED/SUCCESS` | yes/no `1/0` |
 | Vote no on amendment #5 | `0x720533b7025ef3ebffe47c6f3fd539fe5785bb980dfb2b261b14b134a4ad2f5e` — `FINALIZED/SUCCESS` | Amendment #5 `VOTING`, yes/no `1/1`, deadline `1786133549` |
-| Propose unvoted amendment #6 | `0x65214c394248f62ab6aae70a4dcb12ea7b5a8a1d8ab53f8f41eb8b1e72ac96dc` — `FINALIZED/SUCCESS` | Final state readback pending after RPC quota reset |
+| Propose unvoted amendment #6 | `0x65214c394248f62ab6aae70a4dcb12ea7b5a8a1d8ab53f8f41eb8b1e72ac96dc` — `FINALIZED/SUCCESS` | Amendment #6 `PROPOSED`, yes/no `0/0`, deadline `1786133703` |
+| Finalize tied-vote amendment #5 | `0x78f83072732975618d9c30e6968f120b4581004f0a539e6390fd7d34fa8ecb95` — `FINALIZED/SUCCESS` | Amendment #5 `REJECTED`, yes/no `1/1` |
+| Finalize unvoted amendment #6 | `0xf500575d41ffc7f471f2953d25ef0071dab37c0790554ebda8354c98208ad48d` — `FINALIZED/SUCCESS` | Amendment #6 `EXPIRED`, yes/no `0/0` |
+
+All three terminal amendment proofs left `charter_version=4`, `articles=4`, and `members=3`; neither rejected draft entered the active charter.
+
+### Treasury v3 remaining verdict and terminal proof
+
+| Action | Transaction/result | Readback |
+| --- | --- | --- |
+| Submit request #4, keyboard 0.04 GEN | `0xdc6b337591ecf1820d27d354cd550e283d41b55ed5121b2e8fccf8a485ce0ae2` — `FINALIZED/SUCCESS` | `SUBMITTED`; 0.04 GEN reservation active |
+| Submit request #5, team dinner 0.05 GEN | `0x0e6543d6b7fda562a134818f760a866353050f597bcb9d490da3bacf8f5130bb` — `FINALIZED/SUCCESS` | `SUBMITTED`; aggregate reservation 0.09 GEN |
+| Adjudicate request #4 | `0x0c2e5f679cba2a833733ddac5885543bcd63d3631814ddd8ee0242f6c006a93c` — `FINALIZED/SUCCESS` | `DENY`, approved 0, articles 2+3, charter v4, precedent #3 |
+| Adjudicate request #5 | `0x775860c726f1bd4b77d3595e2574235ddaf760018d45fc54b85a8670b0e074fa` — `FINALIZED/SUCCESS` | `PARTIAL`, approved 0.03 GEN under article 4 v2 cap, charter v4, precedent #4 |
+| Close DENY request #4 after appeal window | `0x52ace311d7be24110f91eab0e917348fd11491090719e0f5871d9dd7e86459d0` — `FINALIZED/SUCCESS` | `CLOSED`; no transfer; 0.04 GEN reservation released |
+| Pay PARTIAL request #5 after appeal window | `0x1ea9e9776e696cbc9a0ecdc6d1c21d914f9d7d43e558b83adc08f79640dd2a9b` — `FINALIZED/SUCCESS` | `PAID`; exactly 0.03 GEN transferred; reservation released |
+| Replay payout of CLOSED request #4 | `0x44aaa6807675cb21aef6f12dfbcba3e35e48786c307d5fdcf79615e679fb6c2c` — `FINALIZED/ERROR/E_NOT_PAYABLE` | Treasury state unchanged |
+
+Final Treasury v3 readback: `balance_wei=950000000000000000`, `reserved_wei=0`, `available_balance_wei=950000000000000000`, `request_count=5`, `precedent_count=4`.
 
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
@@ -87,7 +105,7 @@ A frozen contract cannot be upgraded or repaired in place. Recovery is: retain t
 
 ### Required Treasury v3 proof matrix
 
-These rows are intentionally `PENDING`; they are release blockers, not claims of completed evidence.
+Rows marked `COMPLETE` are backed by the transaction hashes and readbacks above. Production parity remains a release blocker until the user authorizes promotion.
 
 The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it consumes the existing ignored testnet B/C account file only when the user runs a named step and never prints keys.
 
@@ -95,12 +113,12 @@ The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it
 | --- | --- |
 | Deployment parity | **COMPLETE** — deploy tx, constructor `Charter/300/60`, 10-method schema, exact deployed-source SHA-256, and zero-state readback verified by Codex RPC checks |
 | Reservation overcommit | **COMPLETE** — B+C successful reservations, rejected aggregate-overcommit tx `0x17120f...2baa`, unchanged state readback |
-| Reservation conservation | **COMPLETE for full payout** — exact 0.02 GEN balance delta, full reservation release, paid-state readback, replay rejected; PARTIAL/zero journeys remain in the advertised-product row |
+| Reservation conservation | **COMPLETE** — exact 0.02 GEN full payout, 0.03 GEN PARTIAL payout, zero-value DENY closure, all reservations released, and replay guards verified |
 | Infrastructure ladder | **COMPLETE** — requests #1/#2 each show `UNDETERMINED → FAILED`; no ruling or precedent; reservations fully released; FAILED replay rejected |
 | Amendment cancellation | **COMPLETE** — `cancel_amendment` tx `0x3f87ed...bcd8`, amendment #4 `CANCELLED` readback, charter unchanged |
-| Amendment rejection | **IN PROGRESS** — amendment #5 proposed with finalized 1–1 voting transactions; deadline finalization/readback pending |
-| Amendment expiration | **IN PROGRESS** — unvoted amendment #6 proposal finalized; deadline finalization/readback pending |
-| Advertised product journey | **IN PROGRESS** — APPROVE + appeal + payout + two precedents complete; PARTIAL, DENY, and charter-change differential remain |
+| Amendment rejection | **COMPLETE** — amendment #5 finalized `REJECTED` after a 1–1 tie; charter unchanged |
+| Amendment expiration | **COMPLETE** — unvoted amendment #6 finalized `EXPIRED`; charter unchanged |
+| Advertised product journey | **COMPLETE** — APPROVE + appeal, DENY, PARTIAL at article 4 v2's 0.03 GEN cap, terminal payout/closure, and four v3 precedents |
 | Production parity | Vercel deployment revision/env, HTTP 200, and dashboard readback matching Studionet |
 
 ## Dev instance — GenLayer Studionet (deployed 2026-07-26)
