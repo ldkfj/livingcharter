@@ -43,6 +43,17 @@ Excluded diagnostic transaction: duplicate B submission `0x833a4ec6465d4ffdc2ae6
 | Request #2 second all-evidence failure | `0xef38c067459e5854524774a62d653050e840cfa2ae1e275e8e723d2f35b15e7c` — `FINALIZED/SUCCESS` | `FAILED`, reservation released; balance/available 1 GEN, reserved 0, precedents 0 |
 | Replay adjudication of FAILED request #1 | `0x6d5a5d6c7b88a805f16053d7fc1a76d41f9ebdf5795f4ad6515687a394451103` — `FINALIZED/ERROR/E_BAD_STATE` | Treasury state unchanged |
 
+### Treasury v3 product and payout proof
+
+| Action | Transaction/result | Readback |
+| --- | --- | --- |
+| Submit PyCon request #3 for 0.02 GEN | `0x36810bbaa95dd52e177a459243dc51ead7970ecc595817ddfb38789d3bd74df8` — `FINALIZED/SUCCESS` | `SUBMITTED`; 0.02 GEN reservation active |
+| Initial adjudication | `0x8b9cfd1d3b072ec2f3ba9a2790c9a781525d65117896656f48564f37945349e8` — `FINALIZED/SUCCESS` | `APPROVE` 0.02 GEN, article 1, charter v4, precedent #1 |
+| Appeal | `0x7e77877b0ba3fafd1157336aea8c4afaac64d600f703b4f98e6f2695a361b658` — `FINALIZED/SUCCESS` | `APPEALED`; reservation retained |
+| Appeal adjudication | `0x6b18fb0e0274126f96270bef700b4a2d0c65ae6a0b215b8720439e508d132eb3` — `FINALIZED/SUCCESS` | `FINAL_RULED`, `APPROVE` 0.02 GEN, articles 1+3, precedent #2 |
+| Payout | `0xb813d4de58a3f576010fc2401b9a04ccaab62803587cd6f161e7f07beed3162c` — `FINALIZED/SUCCESS` | `PAID`; balance 1.00 → 0.98 GEN; full 0.02 reservation released |
+| Payout replay | `0x71ea508fb2da9a9bc99e07cf2f6c8ab3924600afa55eb5c5c35336860e9009be` — `FINALIZED/ERROR/E_ALREADY_PAID` | Treasury state unchanged |
+
 The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
 
 ### Deployment classification and recovery
@@ -74,12 +85,12 @@ The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it
 | --- | --- |
 | Deployment parity | **COMPLETE** — deploy tx, constructor `Charter/300/60`, 10-method schema, exact deployed-source SHA-256, and zero-state readback verified by Codex RPC checks |
 | Reservation overcommit | **COMPLETE** — B+C successful reservations, rejected aggregate-overcommit tx `0x17120f...2baa`, unchanged state readback |
-| Reservation conservation | Partial/full/zero payout as applicable, released reservation, exact balance delta, replay rejected |
+| Reservation conservation | **COMPLETE for full payout** — exact 0.02 GEN balance delta, full reservation release, paid-state readback, replay rejected; PARTIAL/zero journeys remain in the advertised-product row |
 | Infrastructure ladder | **COMPLETE** — requests #1/#2 each show `UNDETERMINED → FAILED`; no ruling or precedent; reservations fully released; FAILED replay rejected |
 | Amendment cancellation | `cancel_amendment` tx and `CANCELLED` readback |
 | Amendment rejection | Voting/finalization txs and `REJECTED` readback |
 | Amendment expiration | Deadline/finalization tx and `EXPIRED` readback |
-| Advertised product journey | APPROVE, PARTIAL, DENY, appeal, charter-change differential, and precedent readback on the submitted address |
+| Advertised product journey | **IN PROGRESS** — APPROVE + appeal + payout + two precedents complete; PARTIAL, DENY, and charter-change differential remain |
 | Production parity | Vercel deployment revision/env, HTTP 200, and dashboard readback matching Studionet |
 
 ## Dev instance — GenLayer Studionet (deployed 2026-07-26)
