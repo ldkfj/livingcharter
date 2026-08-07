@@ -2,13 +2,7 @@
 
 A shared treasury governed by a **living charter**: spending rules written in plain language that members can amend by vote. Every spend request is judged on-chain by GenLayer validators, which independently fetch the request's public web evidence, read the current charter and the accumulated precedent log, and reach consensus on an `APPROVE` / `PARTIAL` / `DENY` ruling. Every ruling becomes a precedent that informs future rulings - and amending the charter visibly changes how the same request is decided.
 
-## The trust problem
-
-A shared treasury (club, DAO working group, small fund) normally hands spending decisions to one treasurer or a rigid multisig. One treasurer is a single point of trust. A multisig can count votes but cannot *interpret* a written policy - "reimburse conference tickets up to the price publicly listed on the event page" is not expressible in deterministic contract code. LivingCharter removes the single decision-maker: the policy is public on-chain text, the interpretation is performed by independent validators reaching consensus, the factual claims are checked against live web evidence fetched by each validator, and every ruling is recorded as citable precedent.
-
-**Why this cannot exist without GenLayer:** remove the AI and nobody can interpret natural-language rules and precedents - the product collapses into an ordinary vote. Remove on-chain web reading and every decision rests on the requester's typed claims - the charter's factual conditions (listed prices, event existence) become unverifiable. Remove consensus and a single hosted LLM becomes the new unilateral treasurer.
-
-## Live deployment (GenLayer Studionet)
+## Verified links
 
 | Item | Value |
 | --- | --- |
@@ -21,37 +15,57 @@ The deployed contracts carry **real multi-wallet usage**, not a single demo tran
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
+> Release-candidate status: the live Treasury v2 above is the last verified deployment. The repository currently contains a solvency hardening change that reserves the maximum liability of every open request. It is not a release until a new Treasury is deployed, source parity is verified, the production address is updated, and the full live proof matrix in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md) is complete.
+
+## The trust problem
+
+A shared treasury normally hands spending decisions to one treasurer or a rigid multisig. One treasurer is a single point of trust. A multisig can count votes but cannot interpret a written policy such as “reimburse conference tickets up to the price publicly listed on the event page.” LivingCharter makes the policy public on-chain text, has independent validators check live evidence and interpret that policy, and records every accepted ruling as citable precedent.
+
+## Why GenLayer is essential
+
+The consequential nondeterministic decision is the spend ruling. The leader and validators independently fetch the submitted public URLs, interpret the active natural-language charter and recent precedents, and compare constrained results. Remove web reading and factual conditions become unverifiable; remove natural-language interpretation and the charter becomes a rigid formula; remove consensus and one hosted model becomes the unilateral treasurer. An accepted ruling controls an on-chain payout or closure.
+
 ## How it works
 
+A member submits a bounded request with public evidence. Anyone may adjudicate it. The request may be appealed once during its window, after which anyone may execute the effective ruling. Separately, members propose, vote on, finalize, or cancel amendments; a ratified amendment changes the rules supplied to later adjudications.
+
+## Architecture
+
+- `contracts/charter.py` is the on-chain source of truth for membership, versioned articles, and amendments.
+- `contracts/treasury.py` is the on-chain source of truth for funds, reservations, requests, rulings, appeals, payouts, and precedents.
+- `frontend/` reads and validates contract JSON losslessly and submits wallet-signed transactions. It never synthesizes chain state.
+- `tests/` provides a pure-Python GenVM behavioral stub; it is test infrastructure, not a production backend.
+
+### Repository layout
+
+```
+contracts/   Charter and Treasury GenVM Intelligent Contracts
+frontend/    React DApp and scripted Studionet integration journeys
+tests/       Pure-Python GenVM behavioral tests
+docs/        Deployment, verification, version, and roadmap records
+scripts/     genvm-lint deployment gate
+```
+
+## Intelligent Contracts
+
 1. **Charter** (`contracts/charter.py`, deterministic): members, versioned articles, and a full amendment state machine (`PROPOSED → VOTING → RATIFIED/REJECTED/EXPIRED`) used both for policy changes and membership changes. One active member = one vote; strict majority; ratification re-validates preconditions against current state.
-2. **Treasury** (`contracts/treasury.py`): holds native GEN. A member submits a spend request with an amount, a purpose, and 1–3 **public evidence URLs** (mandatory). Deterministic guards run first (membership via cross-contract read, amount vs balance, cooldown, one open request per member, URL hygiene).
+2. **Treasury** (`contracts/treasury.py`): holds native GEN. A member submits a spend request with an amount, a purpose, and 1–3 **public evidence URLs**. Deterministic guards run first. The candidate contract reserves each request's full amount at submission, rejects aggregate overcommitment, keeps the reservation through ruling and appeal, and releases it exactly once at `PAID`, `CLOSED`, or initial-adjudication `FAILED`.
 3. **Adjudication** (the nondeterministic core): anyone triggers `adjudicate_request`. Inside `gl.vm.run_nondet_unsafe`, the leader **and** each validator independently fetch every evidence URL (`gl.nondet.web.render`, text mode), read the ratified charter and the last 10 precedent summaries, and run the same constrained evaluation (`gl.nondet.exec_prompt`). The validator accepts only if its own independently-computed decision matches the leader's, the strict JSON schema holds (exact keys, closed verdict set, decision-specific amount invariants, citations restricted to active articles), and PARTIAL amounts agree within ±10% of the requested amount. Consensus failure leaves state untouched; shared infrastructure failure becomes `UNDETERMINED` (retryable) - never a `DENY`.
 4. **Precedent log**: every accepted ruling is appended to an immutable event log and fed into future adjudications ("prior consensus rulings under this charter - follow them unless the charter text itself contradicts them"). Rulings have been observed citing earlier precedents by sequence number.
 5. **Appeal**: one appeal per request within a time window; the appeal adjudication re-runs the full evidence evaluation with the original ruling and the (untrusted-flagged) appeal argument in context. The appeal ruling is final; the systemic remedy afterwards is amending the charter.
 6. **Payout**: after the appeal window (or a final ruling), anyone can execute the payout - native GEN moves to the requester for the approved amount; zero-amount rulings close the request.
 
-## Frontend
+## Transaction lifecycle
 
-React 19 + TypeScript + Vite + `genlayer-js` (`frontend/`). Read paths go through a lossless-JSON, runtime-validated data layer (wei as `bigint` end to end). A shared FIFO limiter allows at most two Studionet reads at once; only the visible tab polls, polling never overlaps its prior load, and transient capacity failures receive bounded backoff before an honest Retry state—never simulated data. Write paths use an EIP-1193 wallet with Studionet chain management and a truthful transaction lifecycle: the UI shows real consensus stages and mutates state **only** after a transaction is `FINALIZED` with execution `SUCCESS`; contract error codes are surfaced, timeouts are a distinct terminal state, and nothing on-chain is ever simulated.
+React 19 + TypeScript + Vite + `genlayer-js` live in `frontend/`. Reads use lossless JSON and runtime validators, with wei represented only as `bigint`. Writes use an EIP-1193 wallet on Studionet. The UI shows named consensus stages, waits for `FINALIZED`, verifies execution `SUCCESS`, then reads authoritative state back. Rejections are neutral cancellations; timeouts and unknown receipt shapes fail closed with reconciliation guidance. A FIFO limiter permits at most two concurrent reads, visible-tab polling never overlaps, and transient capacity failures receive bounded retry.
 
-## Repository layout
-
-```
-contracts/   charter.py, treasury.py - GenVM Intelligent Contracts (Python)
-frontend/    React DApp: read + write, wallet, truthful tx lifecycle
-  scripts/integration/   the scripted multi-wallet journeys recorded in docs/DEPLOYMENTS.md
-tests/       49 pytest unit tests over a pure-Python GenVM stub
-docs/        DEPLOYMENTS.md (full tx audit trail) · VERSIONS.md (verified API surface) · SUBMISSION.md · REVIEWER-GUIDE.md
-scripts/     lint.ps1 - genvm-lint gate (must pass before any deployment)
-```
-
-## Setup
+## Run locally
 
 **1. Contract tests** (no GenLayer runtime needed - the GenVM surface is stubbed):
 
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest -v        # 49 tests
+python -m pytest -v
 ```
 
 **2. Lint gate** (required before any deployment):
@@ -67,13 +81,17 @@ cd frontend
 npm ci
 copy .env.example .env     # then fill in the two deployed addresses (README table above)
 npm run dev                # local app
-npx vitest run             # 97 tests
+npx vitest run
 npm run build              # production build
 ```
 
 The app refuses to start if either address is missing or looks like a placeholder.
 
-## Deploying your own instance
+## Tests and verification
+
+Current candidate results: `51 passed` for `python -m pytest -q`; `99 passed` for `npx vitest run`; `npx tsc --noEmit` clean; `npm run build` clean apart from Vite's existing chunk-size advisory. Both contracts must also pass `powershell -ExecutionPolicy Bypass -File scripts/lint.ps1` before deployment. Exact release evidence, source hashes, transaction hashes, and the outstanding live-proof rows are maintained in [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
+
+## Deployment and recovery
 
 1. Run the lint gate (above) - both contracts must pass.
 2. In [GenLayer Studio](https://studio.genlayer.com), deploy `contracts/charter.py` with `voting_period_seconds` (e.g. `300`). Require the transaction to be **FINALIZED with result SUCCESS** - both, always.
@@ -82,13 +100,22 @@ The app refuses to start if either address is missing or looks like a placeholde
 5. Fund it: call payable `fund` with a GEN value, then put both addresses in `frontend/.env`.
 6. Add members via `propose_amendment` (kind `3` = ADD_MEMBER) → `vote` → `finalize_amendment`.
 
-## Security posture and honest limitations
+Both existing contracts have no upgrader and are therefore frozen under GenVM's default post-constructor lock. The new Treasury deployment remains blocked until the user explicitly confirms the intended frozen classification. A frozen contract cannot be repaired in place: recovery is a source-parity redeployment, state/funding migration by new transactions, frontend environment update, and a fresh proof matrix. See [docs/DEPLOYMENTS.md](docs/DEPLOYMENTS.md).
+
+## Security and trust boundaries
 
 - All fetched web content, request purposes, and appeal arguments are treated as untrusted; the validator enforces a closed verdict set, amount bounds tied to the request, citations restricted to active articles, and exact-key schemas, so injected instructions cannot widen the decision space.
 - Evidence is truncated to 6,000 characters per URL (text rendering). Pages that do not expose the claimed facts in their text lead to denial under the charter's evidence article - strict by design, as the on-chain history shows.
 - Infrastructure failure is never converted into a substantive denial (`UNDETERMINED`/`FAILED` paths preserve funds).
 - `npm audit` reports advisories on a transitive tooling path of `genlayer-js` (no upstream fix available); the runtime read/write paths do not use those modules.
 - Membership is wallet-based; the contract does not verify off-chain identity.
+
+## Known limitations
+
+- The current live Treasury v2 predates reservation accounting; the repository candidate must not be represented as deployed until Treasury v3 evidence is complete.
+- Frozen contracts cannot be upgraded or recovered in place.
+- Evidence is limited to the rendered text window, and public pages can change or become unavailable.
+- Studionet is a shared development environment and can temporarily exhaust execution capacity.
 
 ## Roadmap (not yet implemented)
 

@@ -1,5 +1,64 @@
 # Deployment Record
 
+This is the canonical deployment, source-parity, recovery, and live-proof record for LivingCharter.
+
+## Release-candidate status (2026-08-08)
+
+The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. The local candidate contains two later changes: bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`). Neither is claimed as live. Push, production deployment, and resubmission remain blocked until Treasury v3 source parity and the proof matrix below are complete.
+
+Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
+
+### Draft Treasury v3 manifest (`PRE-DEPLOY AUTHORIZATION`)
+
+| Field | Intended value |
+| --- | --- |
+| Network | GenLayer Studionet; chain ID `61999`; RPC `https://studio.genlayer.com/api` |
+| Source revision | Commit `18b4918915698140c5649918698fe0f91b997dcc` |
+| Source file/hash | `contracts/treasury.py`; LF-normalized SHA-256 `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd` |
+| Constructor | `charter_address=0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`, `appeal_window_seconds=300`, `member_cooldown_seconds=60` |
+| Linked contract | Existing Charter `0x0D22C5298ad1437DB715A543B485588a8e0fc9DB`; verify `get_charter_bundle` before deployment and address readback after deployment |
+| Upgrader | None in candidate source |
+| Classification | Proposed `INTENTIONALLY FROZEN`; not authorized until the user explicitly accepts irreversibility |
+| Configuration order | Deploy → source/schema/state readback → fund → live proof matrix → update frontend Production env → deploy frontend → production readback |
+| Deployment wallet | Not yet selected/confirmed for this deployment action |
+
+The frozen-by-default behavior and its irreversibility are documented by [GenLayer's current upgradability guide](https://docs.genlayer.com/developers/intelligent-contracts/features/upgradability).
+
+### Deployment classification and recovery
+
+| Contract | Runtime classification | Release decision |
+| --- | --- | --- |
+| Charter `0x0D22...c9DB` | Frozen: no upgrader is registered, so GenVM applies the default post-constructor lock | Historical deployed fact; explicit user confirmation of `INTENTIONALLY FROZEN` is required before the next release |
+| Treasury v2 `0x99A0...2F16` | Frozen: no upgrader is registered | Historical deployment; to be superseded, not mutated |
+| Treasury v3 candidate | No upgrader in candidate source; deployment would be permanently frozen | Deployment blocked until explicit user confirmation of irreversibility and deployment wallet |
+
+A frozen contract cannot be upgraded or repaired in place. Recovery is: retain the immutable historical address and audit trail; deploy the reviewed source as a new contract with the same Charter/configuration; verify deploy `FINALIZED` plus execution `SUCCESS`; verify deployed-source SHA-256; fund by a new transaction; update `VITE_TREASURY_ADDRESS`; rerun every required live journey; deploy the frontend; and verify chain readback from the production app. If Studionet itself resets, redeploy both contracts, bootstrap the four founding articles, rebuild membership through amendments, and regenerate this record. No private key or local `.secrets/` content belongs in the recovery package.
+
+### Candidate closure matrix
+
+| Review finding | Source change | Automated evidence | Required live evidence |
+| --- | --- | --- | --- |
+| Concurrent requests can overcommit treasury funds | `reserved_wei`, per-request reservation, unreserved-balance admission, exactly-once terminal release | overcommit, FAILED release, payout conservation, replay, and RPC-shape tests | Two wallets reserve up to capacity; the next request is rejected; terminal payout/closure releases capacity |
+| Deployment/recovery classification absent | This section and the README deployment section | documentation consistency review | User freeze confirmation, deploy receipt, source hash, constructor readback, recovery manifest |
+| Terminal/write-path proof incomplete | Proof matrix below | existing state-machine suites | `cancel_amendment`, `REJECTED`, `EXPIRED`, `UNDETERMINED`, `FAILED`, payout, replay/readback |
+| Repo/live revision mismatch | Candidate/live separation in README and this record | pre-push claim scan | v3 address/env, production deployment SHA, HTTP/app readback |
+
+### Required Treasury v3 proof matrix
+
+These rows are intentionally `PENDING`; they are release blockers, not claims of completed evidence.
+
+| Journey | Required proof |
+| --- | --- |
+| Deployment parity | Deploy tx, constructor values, exact deployed-source SHA-256, contract schema, state readback |
+| Reservation overcommit | Successful reservations from separate members, rejected aggregate-overcommit tx, unchanged state readback |
+| Reservation conservation | Partial/full/zero payout as applicable, released reservation, exact balance delta, replay rejected |
+| Infrastructure ladder | Authentic all-evidence-unavailable adjudications showing `UNDETERMINED` then `FAILED`, no DENY precedent, reservation released |
+| Amendment cancellation | `cancel_amendment` tx and `CANCELLED` readback |
+| Amendment rejection | Voting/finalization txs and `REJECTED` readback |
+| Amendment expiration | Deadline/finalization tx and `EXPIRED` readback |
+| Advertised product journey | APPROVE, PARTIAL, DENY, appeal, charter-change differential, and precedent readback on the submitted address |
+| Production parity | Vercel deployment revision/env, HTTP 200, and dashboard readback matching Studionet |
+
 ## Dev instance — GenLayer Studionet (deployed 2026-07-26)
 
 Development/integration instance for frontend Phase 4–5. Not the final submission deployment.
