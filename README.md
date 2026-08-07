@@ -15,7 +15,7 @@ The deployed contracts carry **real multi-wallet usage**, not a single demo tran
 
 Studionet is GenLayer's hosted development network; persistence is controlled by the GenLayer environment.
 
-> Release-candidate status: Treasury v3 with reservation accounting is deployed and funded at [`0xa430...363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b). RPC source parity and the full contract live-proof matrix are complete. The production frontend remains on Treasury v2 until the user authorizes v3 environment promotion and deployment.
+> Production status: Treasury v3 with reservation accounting is deployed and funded at [`0xa430...363b`](https://explorer-studio.genlayer.com/address/0xa430f80c74cC90a1a75E3906055118e97CdC363b). RPC source parity and the full contract live-proof matrix are complete. [livingcharter.vercel.app](https://livingcharter.vercel.app) now reads this v3 instance: 0.95 GEN, charter v4, 4 articles, 3 members, 5 requests, and 4 precedents at promotion.
 
 ## The trust problem
 

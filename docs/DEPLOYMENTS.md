@@ -4,7 +4,7 @@ This is the canonical deployment, source-parity, recovery, and live-proof record
 
 ## Release-candidate status (2026-08-08)
 
-The public application and submitted Treasury still use Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16`, built from the older `8e54332` release lineage. Treasury v3 has now been deployed and funded with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`); source parity and the contract live-proof matrix are complete below. It has not been promoted to the frontend or claimed as the submission instance. Push, production deployment, and resubmission remain blocked pending user authorization and production-parity verification.
+The production application now uses Treasury v3 at `0xa430f80c74cC90a1a75E3906055118e97CdC363b`, with bounded frontend RPC reads (`e6984e3`) and request-liability reservation accounting (`18b4918`). Source parity, the contract live-proof matrix, and production readback are complete below. Treasury v2 at `0x99A0b62199b412421c6466E1C60e0C0D220D2F16` remains an immutable historical deployment.
 
 Candidate Treasury source SHA-256: raw working-tree bytes `f9d000b1a241b1e112690c826a582567fa43fb545f94e988fde817277d949a31`; LF-normalized Studio comparison `5c87bd2fc825dc425067709ee709ffa0e7e41d19e5e346f226cbf11ad4500dcd`.
 
@@ -119,7 +119,7 @@ The secret-free runner source is `frontend/scripts/integration/v3-proof.mjs`; it
 | Amendment rejection | **COMPLETE** — amendment #5 finalized `REJECTED` after a 1–1 tie; charter unchanged |
 | Amendment expiration | **COMPLETE** — unvoted amendment #6 finalized `EXPIRED`; charter unchanged |
 | Advertised product journey | **COMPLETE** — APPROVE + appeal, DENY, PARTIAL at article 4 v2's 0.03 GEN cap, terminal payout/closure, and four v3 precedents |
-| Production parity | Vercel deployment revision/env, HTTP 200, and dashboard readback matching Studionet |
+| Production parity | **COMPLETE** — Production env embeds Charter + Treasury v3 (no v2 address), HTTP 200/app shell verified, and live reads match `0.95 GEN`, charter v4, 4 articles, 3 members, 5 requests, 4 precedents |
 
 ## Dev instance — GenLayer Studionet (deployed 2026-07-26)
 
